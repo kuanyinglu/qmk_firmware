@@ -24,3 +24,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 /* Select hand configuration */
 //#define MASTER_LEFT
 //#define MASTER_RIGHT
+#undef MOUSEKEY_INTERVAL
+#undef MOUSEKEY_DELAY
+#undef MOUSEKEY_MOVE_DELTA
+#undef MOUSEKEY_INITIAL_SPEED
+#undef MOUSEKEY_BASE_SPEED
+
+#define MOUSEKEY_INTERVAL       8
+#define MOUSEKEY_DELAY          8
+#define MOUSEKEY_MOVE_DELTA     12
+#define MOUSEKEY_INITIAL_SPEED  5
+#define MOUSEKEY_BASE_SPEED     250
+
+
+#define MK_KINETIC_SPEED

@@ -20,7 +20,6 @@ BACKLIGHT_ENABLE = no       # Enable keyboard backlight functionality
 RGBLIGHT_ENABLE = no        # Enable keyboard RGB underglow
 AUDIO_ENABLE = no           # Audio output
 SPLIT_KEYBOARD = yes
-UNICODE_ENABLE = yes
 
 CUSTOM_MATRIX = lite
 NO_USB_STARTUP_CHECK = yes
