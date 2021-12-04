@@ -9,6 +9,7 @@
 
 #define KC_CAD	LALT(LCTL(KC_DEL))
 #define KC_CAH	LALT(LCTL(KC_HOME))
+#define KC_CAT	LALT(LCTL(KC_TAB))
 #define KC_GSS	LGUI(LSFT(KC_S))
 
 #define RAISE MO(_RAISE)
@@ -38,8 +39,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     ),
 
     [_LOWER] = LAYOUT(
-        RESET,   KC_F1,   KC_F2,   KC_F3,   KC_F4, _______,               _______, KC_7,    KC_8,    KC_9,    KC_PMNS, KC_PSLS,
-        _______, KC_F5,   KC_F6,   KC_F7,   KC_F8, _______,               _______, KC_4,    KC_5,    KC_6,    KC_PPLS, KC_PAST,
+        RESET,   KC_F1,   KC_F2,   KC_F3,   KC_F4, KC_VOLU,               KC_BRIU, KC_7,    KC_8,    KC_9,    KC_PMNS, KC_PSLS,
+        _______, KC_F5,   KC_F6,   KC_F7,   KC_F8, KC_VOLD,               KC_BRID, KC_4,    KC_5,    KC_6,    KC_PPLS, KC_PAST,
         _______, KC_F9,   KC_F10,  KC_F11,  KC_F12, _______,              _______, KC_1,    KC_2,    KC_3,    KC_ENT , KC_PERC,
                           _______, _______, _______, _______,             _______, _______,  KC_0,    KC_DOT,
                           _______, _______, _______, _______,             _______, KC_DEL, _______, _______
@@ -55,7 +56,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
     [_PLUS] = LAYOUT(
         KC_CAD,  _______, _______, _______, _______, _______,             _______, _______, _______, _______, _______, _______,
-        KC_CAH,  _______, _______, _______, _______, _______,             _______, _______, _______, _______, _______, _______,
+        KC_CAH,  _______, _______, _______, KC_CAT,  _______,             _______, _______, _______, _______, _______, _______,
         KC_GSS,  _______, _______, _______, _______, _______,             _______, _______, _______, _______, _______, _______,
                           _______, _______, _______, _______,             _______, _______, _______, _______,
                           _______, _______, _______, _______,             _______, _______, _______, _______
