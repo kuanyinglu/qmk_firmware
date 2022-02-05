@@ -21,6 +21,7 @@
 #include "quantum.h"
 #include "spi_master.h"
 #include "drivers/sensors/pmw3360.h"
+#include "drivers/sensors/mpu9250.h"
 #include "analog.h"
 #include "opt_encoder.h"
 #include "pointing_device.h"

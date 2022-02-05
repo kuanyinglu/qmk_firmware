@@ -242,6 +242,7 @@ void keyboard_pre_init_kb(void) {
 void pointing_device_init(void) {
     // initialize ball sensor
     pmw_spi_init();
+    mpu9250_setup();
     // initialize the scroll wheel's optical encoder
     opt_encoder_init();
 }
