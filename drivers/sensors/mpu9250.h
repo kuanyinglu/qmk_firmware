@@ -33,7 +33,7 @@ bool isSleeping(void);
 
 bool available(void);
 
-bool update(void);
+bool mpu9250_update(void);
 
 float getRoll(void);
 float getPitch(void);

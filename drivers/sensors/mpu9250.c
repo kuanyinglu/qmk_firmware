@@ -2,10 +2,9 @@
 #include "quaternion_filter.h"
 #include "spi_master.h"
 #include "debug.h"
-#include <math.h>
 #include "print.h"
 #include "mpu9250.h"
-#include <util/delay.h>
+#include "wait.h"
 
 // enum class ACCEL_FS_SEL {
 //     A2G,
@@ -70,8 +69,8 @@
 #define SPI_MODE                             3
 #define MPU9250_CLOCK_SPEED                  1000000
 #define SPI_DIVISOR (F_CPU / MPU9250_CLOCK_SPEED)
-#define WRITE_FLAG                           0x80
-#define READ_FLAG                            0x7F
+#define WRITE_FLAG                           0x7F
+#define READ_FLAG                            0x80
 
 // settings
 mpu9250_setting setting = { 3, 3, 1, 4, 3, 3, 1, 3};
@@ -114,24 +113,25 @@ bool mpu9250_setup(void) {
     setPinOutput(SPI_SS2_PIN);
 
     spi_init();
+    spi_stop();
 
-    if (isConnectedMPU9250()) {
+    spi_start(SPI_SS2_PIN, false, SPI_MODE, SPI_DIVISOR);
+    spi_stop();
+    wait_ms(10); 
+
+
+    // if (isConnectedMPU9250()) {
         initMPU9250();
-        if (isConnectedAK8963())
-            initAK8963();
-        else {
-            if (b_verbose)
-                dprintf("Could not connect to AK8963\n");
-            has_connected = false;
-            return false;
-        }
-    } else {
-        if (b_verbose)
-            dprintf("Could not connect to MPU9250\n");
-        has_connected = false;
-        return false;
-    }
-    has_connected = true;
+        initAK8963();
+        // if (!isConnectedAK8963())
+            // has_connected = false;
+            // return false;
+        // }
+    // } else {
+        // has_connected = false;
+        // return false;
+    // }
+    // has_connected = true;
     return true;
 }
 
@@ -167,11 +167,12 @@ bool isConnected(void) {
 }
 
 bool isConnectedMPU9250(void) {
+    write_byte(WHO_AM_I_MPU9250, 0x68);
     uint8_t c = read_byte(WHO_AM_I_MPU9250);
     if (b_verbose) {
-        dprintf("MPU9250 WHO AM I = ");
+        print("MPU9250 WHO AM I = ");
         print_hex8(c);
-        dprintf("\n");
+        print("\n");
     }
     bool b = (c == MPU9250_WHOAMI_DEFAULT_VALUE);
     b |= (c == MPU9255_WHOAMI_DEFAULT_VALUE);
@@ -180,15 +181,15 @@ bool isConnectedMPU9250(void) {
 }
 
 bool isConnectedAK8963(void) {
-    write_byte(I2C_SLV0_ADDR,AK8963_ADDRESS|READ_FLAG); //Set the I2C slave addres of AK8963 and set for read.
+    write_byte(I2C_SLV0_ADDR, AK8963_ADDRESS | READ_FLAG); //Set the I2C slave addres of AK8963 and set for write
     write_byte(I2C_SLV0_REG, AK8963_WHO_AM_I); //I2C slave 0 register address from where to begin data transfer
     write_byte(I2C_SLV0_CTRL, 0x81); //Read 1 byte from the magnetometer
-    _delay_ms(10);
+    wait_ms(10);
     uint8_t c = read_byte(EXT_SENS_DATA_00);
     if (b_verbose) {
-        dprintf("AK8963 WHO AM I = ");
+        print("AK8963 WHO AM I = ");
         print_hex8(c);
-        dprintf("\n");
+        print("\n");
     }
     return (c == AK8963_WHOAMI_DEFAULT_VALUE);
 }
@@ -202,7 +203,9 @@ bool available(void) {
     return has_connected && (read_byte(INT_STATUS) & 0x01);
 }
 
-bool update(void) {
+bool mpu9250_update(void) {
+    isConnectedMPU9250();
+    isConnectedAK8963();
     if (!available()) return false;
 
     update_accel_gyro();
@@ -234,7 +237,8 @@ bool update(void) {
     float md = +m[2];
 
     for (size_t i = 0; i < n_filter_iter; ++i) {
-        quaternion_update(an, ae, ad, gn, ge, gd, mn, me, md, q);
+        // quaternion_update(an, ae, ad, gn, ge, gd, mn, me, md, q);
+        quaternion_madgwick(an, ae, ad, gn, ge, gd, mn, me, md, q);
     }
 
     if (!b_ahrs) {
@@ -321,9 +325,9 @@ void setMagScale(float x, float y, float z) {
 }
 void setMagneticDeclination(float d) { magnetic_declination = d; }
 
-void selectFilter(uint8_t sel) {
-    quaternion_select_filter(sel);
-}
+// void selectFilter(uint8_t sel) {
+//     quaternion_select_filter(sel);
+// }
 
 void setFilterIterations(size_t n) {
     if (n > 0) n_filter_iter = n;
@@ -340,19 +344,25 @@ void initMPU9250(void) {
 
     // reset device
     write_byte(PWR_MGMT_1, 0x80);  // Write a one to bit 7 reset bit; toggle reset device
-    _delay_ms(100);
+    wait_ms(100);
 
     // wake up device
-    write_byte(PWR_MGMT_1, 0x00);  // Clear sleep mode bit (6), enable all sensors
-    _delay_ms(100);                                  // Wait for all registers to reset
+    write_byte(PWR_MGMT_2, 0x00);  // Clear sleep mode bit (6), enable all sensors
+    wait_ms(100);
 
     // get stable time source
     write_byte(PWR_MGMT_1, 0x01);  // Auto select clock source to be PLL gyroscope reference if ready else
-    _delay_ms(200);
+    wait_ms(100);
 
     // disable I2C
-    write_byte(USER_CTRL, 0x30);// I2C Master mode and set I2C_IF_DIS to disable slave mode I2C bus
-    _delay_ms(200);
+    write_byte(USER_CTRL, 0x20);// I2C Master mode and set I2C_IF_DIS to disable slave mode I2C bus
+    wait_ms(100);
+
+    write_byte(I2C_MST_CTRL, 0x0D);// I2C Master mode and set I2C_IF_DIS to disable slave mode I2C bus
+    wait_ms(100);
+
+    write_byte(I2C_MST_DELAY_CTRL, 0x81);// I2C Master mode and set I2C_IF_DIS to disable slave mode I2C bus
+    wait_ms(100);
 
     // Configure Gyro and Thermometer
     // Disable FSYNC and set thermometer and gyro bandwidth to 41 and 42 Hz, respectively;
@@ -401,46 +411,55 @@ void initMPU9250(void) {
     // Set interrupt pin active high, push-pull, hold interrupt pin level HIGH until interrupt cleared,
     // clear on read of INT_STATUS, and enable I2C_BYPASS_EN so additional chips
     // can join the I2C bus and all can be controlled by the Arduino as master
-    write_byte(INT_PIN_CFG, 0x22);
+    write_byte(INT_PIN_CFG, 0x10);
     write_byte(INT_ENABLE, 0x01);  // Enable data ready (bit 0) interrupt
-    _delay_ms(100);
+    wait_ms(100);
 
 }
 
 void initAK8963(void) {
-    write_byte(I2C_SLV0_ADDR, AK8963_ADDRESS|WRITE_FLAG); //Set the I2C slave addres of AK8963 and set for read.
+    write_byte(I2C_SLV0_ADDR, AK8963_ADDRESS); //Set the I2C slave addres of AK8963 and set for write
+    write_byte(I2C_SLV0_REG, AK8963_CNTL2); //I2C slave 0 register address from where to begin data transfer
+    write_byte(I2C_SLV0_DO, 0x01);  //reset 
+    write_byte(I2C_SLV0_CTRL, 0x81);  //Enable I2C and set 1 byte
+    wait_ms(50);
+    // write_byte(I2C_SLV0_ADDR, AK8963_ADDRESS); //Set the I2C slave addres of AK8963 and set for write
+    // write_byte(I2C_SLV0_REG, AK8963_CNTL); //I2C slave 0 register address from where to begin data transfer
+    // write_byte(I2C_SLV0_DO, 0x00);  // Reset
+    // write_byte(I2C_SLV0_CTRL, 0x81);  //Enable I2C and set 1 byte
+    // wait_ms(50);
+    write_byte(I2C_SLV0_ADDR, AK8963_ADDRESS); //Set the I2C slave addres of AK8963 and set for write
     write_byte(I2C_SLV0_REG, AK8963_CNTL); //I2C slave 0 register address from where to begin data transfer
-    // First extract the factory calibration for each magnetometer axis
+    write_byte(I2C_SLV0_DO, 0x0F);  // Enter fuze mode
+    write_byte(I2C_SLV0_CTRL, 0x81);  //Enable I2C and set 1 byte
+    wait_ms(50);
+        // First extract the factory calibration for each magnetometer axis
     uint8_t raw_data[3];                            // x/y/z gyro calibration data stored here
-    write_byte(I2C_SLV0_CTRL, 0x00);  // Power down magnetometer
-    _delay_ms(10);
-    write_byte(I2C_SLV0_CTRL, 0x0F);  // Enter Fuse ROM access mode
 
-    write_byte(I2C_SLV0_ADDR,AK8963_ADDRESS|READ_FLAG); //Set the I2C slave addres of AK8963 and set for read.
+    write_byte(I2C_SLV0_ADDR, AK8963_ADDRESS | READ_FLAG); //Set the I2C slave addres of AK8963 and set for write
     write_byte(I2C_SLV0_REG, AK8963_ASAX); //I2C slave 0 register address from where to begin data transfer
     write_byte(I2C_SLV0_CTRL, 0x83);                      // Read 1 bytes from the magnetometer
-    _delay_ms(10);
+    wait_ms(50);
     read_bytes(EXT_SENS_DATA_00, 3, &raw_data[0]);      // Read the x-, y-, and z-axis calibration values
     mag_bias_factory[0] = (float)(raw_data[0] - 128) / 256. + 1.;  // Return x-axis sensitivity adjustment values, etc.
     mag_bias_factory[1] = (float)(raw_data[1] - 128) / 256. + 1.;
     mag_bias_factory[2] = (float)(raw_data[2] - 128) / 256. + 1.;
 
-    write_byte(I2C_SLV0_ADDR,AK8963_ADDRESS|WRITE_FLAG); //Set the I2C slave addres of AK8963 and set for read.
+    write_byte(I2C_SLV0_ADDR, AK8963_ADDRESS); //Set the I2C slave addres of AK8963 and set for write
     write_byte(I2C_SLV0_REG, AK8963_CNTL); //I2C slave 0 register address from where to begin data transfer
-    write_byte(I2C_SLV0_CTRL, 0x00);  // Power down magnetometer
-    _delay_ms(10);
-    // Configure the magnetometer for continuous read and highest resolution
-    // set Mscale bit 4 to 1 (0) to enable 16 (14) bit resolution in CNTL register,
-    // and enable continuous mode data acquisition MAG_MODE (bits [3:0]), 0010 for 8 Hz and 0110 for 100 Hz sample rates
-    write_byte(I2C_SLV0_CTRL, (uint8_t)setting.mag_output_bits << 4 | MAG_MODE);  // Set magnetometer data resolution and sample ODR
-    _delay_ms(10);
+    write_byte(I2C_SLV0_DO, 0x00);  // Reset
+    write_byte(I2C_SLV0_CTRL, 0x81);  //Enable I2C and set 1 byte
+    wait_ms(50);
 
-    if (b_verbose) {
-        dprintf("Mag Factory Calibration Values: \n");
-        dprintf("X-Axis sensitivity offset value %f\n", mag_bias_factory[0]);
-        dprintf("Y-Axis sensitivity offset value %f\n", mag_bias_factory[1]);
-        dprintf("Z-Axis sensitivity offset value %f\n", mag_bias_factory[2]);
-    }
+    write_byte(I2C_SLV0_ADDR, AK8963_ADDRESS); //Set the I2C slave addres of AK8963 and set for write
+    write_byte(I2C_SLV0_REG, AK8963_CNTL); //I2C slave 0 register address from where to begin data transfer
+    write_byte(I2C_SLV0_DO, 0x16);  // Register value to 100Hz continuous measurement in 16bit
+    write_byte(I2C_SLV0_CTRL, 0x81);  //Enable I2C and set 1 byte
+    wait_ms(50);
+    write_byte(I2C_SLV0_ADDR, AK8963_ADDRESS | READ_FLAG); //Set the I2C slave addres of AK8963 and set for write
+    write_byte(I2C_SLV0_REG, AK8963_CNTL); //I2C slave 0 register address from where to begin data transfer
+    write_byte(I2C_SLV0_CTRL, 0x81);                      // Read 1 bytes from the magnetometer
+    wait_ms(50);
 }
 
 void update_rpy(float qw, float qx, float qy, float qz) {
@@ -523,7 +542,6 @@ void update_mag(void) {
 }
 
 bool read_mag(int16_t* destination) {
-    write_byte(I2C_SLV0_ADDR,AK8963_ADDRESS|READ_FLAG);  // Set the I2C slave addres of AK8963 and set for read.
     write_byte(I2C_SLV0_REG, AK8963_ST1);                 // I2C slave 0 register address from where to begin data transfer
     write_byte(I2C_SLV0_CTRL, 0x81);                      // Read 1 bytes from the magnetometer
     const uint8_t st1 = read_byte(EXT_SENS_DATA_00);
@@ -563,21 +581,21 @@ void calibrate_acc_gyro_impl(void) {
     collect_acc_gyro_data_to(acc_bias, gyro_bias);
     write_accel_offset();
     write_gyro_offset();
-    _delay_ms(100);
+    wait_ms(100);
     initMPU9250();
-    _delay_ms(1000);
+    wait_ms(1000);
 }
 
 void set_acc_gyro_to_calibration(void) {
     // reset device
     write_byte(PWR_MGMT_1, 0x80);  // Write a one to bit 7 reset bit; toggle reset device
-    _delay_ms(100);
+    wait_ms(100);
 
     // get stable time source; Auto select clock source to be PLL gyroscope reference if ready
     // else use the internal oscillator, bits 2:0 = 001
     write_byte(PWR_MGMT_1, 0x01);
     write_byte(PWR_MGMT_2, 0x00);
-    _delay_ms(200);
+    wait_ms(100);
 
     // Configure device for bias calculation
     write_byte(INT_ENABLE, 0x00);    // Disable all interrupts
@@ -586,7 +604,7 @@ void set_acc_gyro_to_calibration(void) {
     write_byte(I2C_MST_CTRL, 0x00);  // Disable I2C master
     write_byte(USER_CTRL, 0x00);     // Disable FIFO and I2C master modes
     write_byte(USER_CTRL, 0x0C);     // Reset FIFO and DMP
-    _delay_ms(15);
+    wait_us(15000);
 
     // Configure MPU6050 gyro and accelerometer for bias calculation
     write_byte(MPU_CONFIG, 0x01);    // Set low-pass filter to 188 Hz
@@ -597,7 +615,7 @@ void set_acc_gyro_to_calibration(void) {
     // Configure FIFO to capture accelerometer and gyro data for bias calculation
     write_byte(USER_CTRL, 0x40);  // Enable FIFO
     write_byte(FIFO_EN, 0x78);    // Enable gyro and accelerometer sensors for FIFO  (max size 512 bytes in MPU-9150)
-    _delay_ms(40);                                  // accumulate 40 samples in 40 milliseconds = 480 bytes
+    wait_ms(40);
 }
 
 void collect_acc_gyro_data_to(float* a_bias, float* g_bias) {
@@ -732,7 +750,9 @@ void calibrate_mag_impl(void) {
 void collect_mag_data_to(float* m_bias, float* m_scale) {
     if (b_verbose)
         dprintf("Mag Calibration: Wave device in a figure eight until done!\n");
-    _delay_ms(4000);
+    for (uint16_t i = 0; i < 400; i++) {
+        wait_us(10000);
+    }
 
     // shoot for ~fifteen seconds of mag data
     uint16_t sample_count = 0;
@@ -751,8 +771,8 @@ void collect_mag_data_to(float* m_bias, float* m_scale) {
             if (mag_temp[jj] > mag_max[jj]) mag_max[jj] = mag_temp[jj];
             if (mag_temp[jj] < mag_min[jj]) mag_min[jj] = mag_temp[jj];
         }
-        if (MAG_MODE == 0x02) _delay_ms(135);  // at 8 Hz ODR, new mag data is available every 125 ms
-        if (MAG_MODE == 0x06) _delay_ms(12);   // at 100 Hz ODR, new mag data is available every 10 ms
+        // if (MAG_MODE == 0x02) wait_us(135000);  // at 8 Hz ODR, new mag data is available every 125 ms
+        if (MAG_MODE == 0x06) wait_us(12000);   // at 100 Hz ODR, new mag data is available every 10 ms
     }
 
     if (b_verbose) {
@@ -821,7 +841,7 @@ bool self_test_impl(void)  // Should return percent deviation from factory trim 
     // Configure the accelerometer for self-test
     write_byte(ACCEL_CONFIG, 0xE0);  // Enable self test on all three axes and set accelerometer range to +/- 2 g
     write_byte(GYRO_CONFIG, 0xE0);   // Enable self test on all three axes and set gyro range to +/- 250 degrees/s
-    _delay_ms(25);                                     // Delay a while to let the device stabilize
+    wait_us(25000);                                     // Delay a while to let the device stabilize
 
     for (int ii = 0; ii < 200; ii++) {  // get average self-test values of gyro and acclerometer
 
@@ -844,7 +864,7 @@ bool self_test_impl(void)  // Should return percent deviation from factory trim 
     // Configure the gyro and accelerometer for normal operation
     write_byte(ACCEL_CONFIG, 0x00);
     write_byte(GYRO_CONFIG, 0x00);
-    _delay_ms(25);  // Delay a while to let the device stabilize
+    wait_us(25000);  // Delay a while to let the device stabilize
 
     // Retrieve accelerometer and gyro factory Self-Test Code from USR_Reg
     uint8_t self_test_data[6];
@@ -968,23 +988,35 @@ float get_mag_resolution(uint8_t mag_output_bits) {
 // }
 void write_byte(uint8_t address, uint8_t data) {
     spi_start(SPI_SS2_PIN, false, SPI_MODE, SPI_DIVISOR);
-    spi_write(address);
+    wait_us(1);
+    spi_write(address&WRITE_FLAG);
+    wait_us(1);
     spi_write(data);
+    wait_us(1);
     spi_stop();
+    wait_us(50);
 }
 
 uint8_t read_byte(uint8_t address) {
     spi_start(SPI_SS2_PIN, false, SPI_MODE, SPI_DIVISOR);
-    spi_write(address);
+    wait_us(1);
+    spi_write(address|READ_FLAG);
+    wait_us(1);
     uint8_t data = spi_read();
+    wait_us(1);
     spi_stop();
+    wait_us(50);
     return data;                                 // Return data read from slave register
 }
 
 void read_bytes(uint8_t address, uint8_t count, uint8_t* dest) {
     spi_start(SPI_SS2_PIN, false, SPI_MODE, SPI_DIVISOR);
-    spi_write(address);
+    wait_us(1);
+    spi_write(address|READ_FLAG);
+    wait_us(1);
     for (uint8_t i = 0; i < count; i++) {
         dest[i] = spi_read();
+        wait_us(1);
     }
+    wait_us(50);
 }

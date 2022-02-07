@@ -38,7 +38,3 @@
 #define UNUSED_PINS \
     { D1, D3, B4, B7, D6, C7, F6, F5, F3, F7 }
 
-
-#if !defined(SPI_SS2_PIN)
-#    define SPI_SS2_PIN E2
-#endif

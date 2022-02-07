@@ -92,14 +92,14 @@ __attribute__((weak)) void process_wheel(report_mouse_t* mouse_report) {
     }
 
     lastScroll  = timer_read();
-    uint16_t p1 = adc_read(OPT_ENC1_MUX);
-    uint16_t p2 = adc_read(OPT_ENC2_MUX);
-    if (debug_encoder) dprintf("OPT1: %d, OPT2: %d\n", p1, p2);
+    // uint16_t p1 = adc_read(OPT_ENC1_MUX);
+    // uint16_t p2 = adc_read(OPT_ENC2_MUX);
+    // if (debug_encoder) dprintf("OPT1: %d, OPT2: %d\n", p1, p2);
 
-    int dir = opt_encoder_handler(p1, p2);
-
-    if (dir == 0) return;
-    process_wheel_user(mouse_report, mouse_report->h, (int)(mouse_report->v + (dir * OPT_SCALE)));
+    // int dir = opt_encoder_handler(p1, p2);
+    return;
+    // if (dir == 0) return;
+    // process_wheel_user(mouse_report, mouse_report->h, (int)(mouse_report->v + (dir * OPT_SCALE)));
 }
 
 __attribute__((weak)) void process_mouse_user(report_mouse_t* mouse_report, int16_t x, int16_t y) {
@@ -108,47 +108,54 @@ __attribute__((weak)) void process_mouse_user(report_mouse_t* mouse_report, int1
 }
 
 __attribute__((weak)) void process_mouse(report_mouse_t* mouse_report) {
-    report_pmw_t data = pmw_read_burst();
-    if (data.isOnSurface && data.isMotion) {
-        // Reset timer if stopped moving
-        if (!data.isMotion) {
-            if (MotionStart != 0) MotionStart = 0;
-            return;
-        }
+//     report_pmw_t data = pmw_read_burst();
+//     if (data.isOnSurface && data.isMotion) {
+//         // Reset timer if stopped moving
+//         if (!data.isMotion) {
+//             if (MotionStart != 0) MotionStart = 0;
+//             return;
+//         }
 
-        // Set timer if new motion
-        if ((MotionStart == 0) && data.isMotion) {
-            if (debug_mouse) dprintf("Starting motion.\n");
-            MotionStart = timer_read();
-        }
+//         // Set timer if new motion
+//         if ((MotionStart == 0) && data.isMotion) {
+//             if (debug_mouse) dprintf("Starting motion.\n");
+//             MotionStart = timer_read();
+//         }
 
-        if (debug_mouse) {
-            dprintf("Delt] d: %d t: %u\n", abs(data.dx) + abs(data.dy), MotionStart);
-        }
-        if (debug_mouse) {
-            dprintf("Pre ] X: %d, Y: %d\n", data.dx, data.dy);
-        }
-#if defined(PROFILE_LINEAR)
-        float scale = float(timer_elaspsed(MotionStart)) / 1000.0;
-        data.dx *= scale;
-        data.dy *= scale;
-#elif defined(PROFILE_INVERSE)
-        // TODO
-#else
-        // no post processing
-#endif
-        // apply multiplier
-        // data.dx *= mouse_multiplier;
-        // data.dy *= mouse_multiplier;
+//         if (debug_mouse) {
+//             dprintf("Delt] d: %d t: %u\n", abs(data.dx) + abs(data.dy), MotionStart);
+//         }
+//         if (debug_mouse) {
+//             dprintf("Pre ] X: %d, Y: %d\n", data.dx, data.dy);
+//         }
+// #if defined(PROFILE_LINEAR)
+//         float scale = float(timer_elaspsed(MotionStart)) / 1000.0;
+//         data.dx *= scale;
+//         data.dy *= scale;
+// #elif defined(PROFILE_INVERSE)
+//         // TODO
+// #else
+//         // no post processing
+// #endif
+//         // apply multiplier
+//         // data.dx *= mouse_multiplier;
+//         // data.dy *= mouse_multiplier;
 
-        // Wrap to HID size
-        data.dx = constrain(data.dx, -127, 127);
-        data.dy = constrain(data.dy, -127, 127);
-        if (debug_mouse) dprintf("Cons] X: %d, Y: %d\n", data.dx, data.dy);
-        // dprintf("Elapsed:%u, X: %f Y: %\n", i, pgm_read_byte(firmware_data+i));
+//         // Wrap to HID size
+//         data.dx = constrain(data.dx, -127, 127);
+//         data.dy = constrain(data.dy, -127, 127);
+//         if (debug_mouse) dprintf("Cons] X: %d, Y: %d\n", data.dx, data.dy);
+//         // dprintf("Elapsed:%u, X: %f Y: %\n", i, pgm_read_byte(firmware_data+i));
 
-        process_mouse_user(mouse_report, data.dx, -data.dy);
-    }
+//         process_mouse_user(mouse_report, data.dx, -data.dy);
+//     }
+    // if (mpu9250_update()) {
+    //     xprintf("X: %f\n", getQuaternionX());
+    //     xprintf("Y: %f\n", getQuaternionY());
+    //     xprintf("Z: %f\n", getQuaternionZ());
+    // }
+    isConnectedMPU9250();
+    isConnectedAK8963();
 }
 
 bool process_record_kb(uint16_t keycode, keyrecord_t* record) {
@@ -241,16 +248,16 @@ void keyboard_pre_init_kb(void) {
 
 void pointing_device_init(void) {
     // initialize ball sensor
-    pmw_spi_init();
+    // pmw_spi_init();
     mpu9250_setup();
     // initialize the scroll wheel's optical encoder
-    opt_encoder_init();
+    // opt_encoder_init();
 }
 
 
 void pointing_device_task(void) {
     report_mouse_t mouse_report = pointing_device_get_report();
-    process_wheel(&mouse_report);
+    // process_wheel(&mouse_report);
     process_mouse(&mouse_report);
 
     if (is_drag_scroll) {
@@ -286,7 +293,7 @@ void matrix_init_kb(void) {
 }
 
 void keyboard_post_init_kb(void) {
-    pmw_set_cpi(dpi_array[keyboard_config.dpi_config]);
+    // pmw_set_cpi(dpi_array[keyboard_config.dpi_config]);
 
     keyboard_post_init_user();
 }

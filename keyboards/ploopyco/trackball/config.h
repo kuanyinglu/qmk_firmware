@@ -39,8 +39,8 @@
 
 /* disable action features */
 //#define NO_ACTION_LAYER
-//#define NO_ACTION_TAPPING
-//#define NO_ACTION_ONESHOT
+#define NO_ACTION_TAPPING
+#define NO_ACTION_ONESHOT
 #define NO_ACTION_MACRO
 #define NO_ACTION_FUNCTION
 
@@ -60,3 +60,4 @@
 
 /* PMW3360 Settings */
 #define PMW3360_CS_PIN             B0
+#    define SPI_SS2_PIN            E2

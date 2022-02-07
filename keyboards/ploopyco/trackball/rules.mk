@@ -8,7 +8,7 @@ F_CPU = 8000000
 #   change yes to no to disable
 #
 BOOTMAGIC_ENABLE = lite     # Enable Bootmagic Lite
-EXTRAKEY_ENABLE = yes       # Audio control and System control
+EXTRAKEY_ENABLE = no       # Audio control and System control
 CONSOLE_ENABLE = yes         # Console for debug
 COMMAND_ENABLE = no         # Commands for debug and configuration
 # Do not enable SLEEP_LED_ENABLE. it uses the same timer as BACKLIGHT_ENABLE
@@ -22,6 +22,6 @@ POINTING_DEVICE_ENABLE = yes
 MOUSEKEY_ENABLE = yes       # Mouse keys
 
 QUANTUM_LIB_SRC += analog.c spi_master.c
-SRC += drivers/sensors/pmw3360.c opt_encoder.c drivers/sensors/mpu9250.c
+SRC += drivers/sensors/pmw3360.c opt_encoder.c drivers/sensors/mpu9250.c drivers/sensors/quaternion_filter.c
 
 DEFAULT_FOLDER = ploopyco/trackball/rev1_005

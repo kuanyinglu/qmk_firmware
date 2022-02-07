@@ -5,9 +5,9 @@
 //  2 - Madgwick
 //  3 - Mahony
 
-void quaternion_select_filter(uint8_t sel);
-void quaternion_update(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float* q);
-void quaternion_no_filter(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float* q);
+// void quaternion_select_filter(uint8_t sel);
+// void quaternion_update(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float* q);
+// void quaternion_no_filter(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float* q);
 // Madgwick Quaternion Update
 void quaternion_madgwick(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float* q);
 
@@ -22,4 +22,4 @@ void quaternion_madgwick(float ax, float ay, float az, float gx, float gy, float
 // float Ki = 0.0;
 // with MPU-9250, angles start oscillating at Kp=40. Ki does not seem to help and is not required.
 // with MPU-6050, some instability observed at Kp=100 Now set to 30.
-void quaternion_mahony(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float* q);
+// void quaternion_mahony(float ax, float ay, float az, float gx, float gy, float gz, float mx, float my, float mz, float* q);
