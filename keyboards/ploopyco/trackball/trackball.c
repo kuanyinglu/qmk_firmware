@@ -64,6 +64,7 @@ uint16_t lastMidClick      = 0;      // Stops scrollwheel from being read if it 
 uint8_t  OptLowPin         = OPT_ENC1;
 bool     debug_encoder     = false;
 bool     is_drag_scroll    = false;
+float    vx                = 0;
 
 __attribute__((weak)) void process_wheel_user(report_mouse_t* mouse_report, int16_t h, int16_t v) {
     mouse_report->h = h;
@@ -103,7 +104,8 @@ __attribute__((weak)) void process_wheel(report_mouse_t* mouse_report) {
 }
 
 __attribute__((weak)) void process_mouse_user(report_mouse_t* mouse_report, int16_t x, int16_t y) {
-    mouse_report->x = x;
+    // mouse_report->x = x;
+    mouse_report->x = getLinearAccX();
     mouse_report->y = y;
 }
 
@@ -149,13 +151,10 @@ __attribute__((weak)) void process_mouse(report_mouse_t* mouse_report) {
 
 //         process_mouse_user(mouse_report, data.dx, -data.dy);
 //     }
-    // if (mpu9250_update()) {
-    //     xprintf("X: %f\n", getQuaternionX());
-    //     xprintf("Y: %f\n", getQuaternionY());
-    //     xprintf("Z: %f\n", getQuaternionZ());
-    // }
-    isConnectedMPU9250();
-    isConnectedAK8963();
+    if (mpu9250_update()) {
+        vx = vx + getLinearAccX();
+        process_mouse_user(mouse_report, 0, 0);
+    }
 }
 
 bool process_record_kb(uint16_t keycode, keyrecord_t* record) {
@@ -250,6 +249,7 @@ void pointing_device_init(void) {
     // initialize ball sensor
     // pmw_spi_init();
     mpu9250_setup();
+    // calibrateAccelGyro();
     // initialize the scroll wheel's optical encoder
     // opt_encoder_init();
 }

@@ -67,13 +67,13 @@
 #define CALIB_ACCEL_SENSITIVITY              16384// LSB/g
 
 #define SPI_MODE                             3
-#define MPU9250_CLOCK_SPEED                  1000000
+#define MPU9250_CLOCK_SPEED                  400000
 #define SPI_DIVISOR (F_CPU / MPU9250_CLOCK_SPEED)
 #define WRITE_FLAG                           0x7F
 #define READ_FLAG                            0x80
 
 // settings
-mpu9250_setting setting = { 3, 3, 1, 4, 3, 3, 1, 3};
+mpu9250_setting setting = { 0, 0, 1, 4, 3, 3, 1, 3};
 // TODO: this should be configured!!
 float acc_resolution = 0;                // scale resolutions per LSB for the sensors
 float gyro_resolution = 0;               // scale resolutions per LSB for the sensors
@@ -122,7 +122,7 @@ bool mpu9250_setup(void) {
 
     // if (isConnectedMPU9250()) {
         initMPU9250();
-        initAK8963();
+        // initAK8963();
         // if (!isConnectedAK8963())
             // has_connected = false;
             // return false;
@@ -131,7 +131,7 @@ bool mpu9250_setup(void) {
         // has_connected = false;
         // return false;
     // }
-    // has_connected = true;
+    has_connected = true;
     return true;
 }
 
@@ -204,12 +204,14 @@ bool available(void) {
 }
 
 bool mpu9250_update(void) {
-    isConnectedMPU9250();
-    isConnectedAK8963();
     if (!available()) return false;
 
     update_accel_gyro();
-    update_mag();
+
+    //take a few measures to estimate gravity here
+
+
+    // update_mag();
 
     // Madgwick function needs to be fed North, East, and Down direction like
     // (AN, AE, AD, GN, GE, GD, MN, ME, MD)
@@ -238,12 +240,12 @@ bool mpu9250_update(void) {
 
     for (size_t i = 0; i < n_filter_iter; ++i) {
         // quaternion_update(an, ae, ad, gn, ge, gd, mn, me, md, q);
-        quaternion_madgwick(an, ae, ad, gn, ge, gd, mn, me, md, q);
+        quaternion_mahony(an, ae, ad, gn, ge, gd, mn, me, md, q);
     }
 
     if (!b_ahrs) {
-        temperature_count = read_temperature_data();               // Read the adc values
-        temperature = ((float)temperature_count) / 333.87 + 21.0;  // Temperature in degrees Centigrade
+        // temperature_count = read_temperature_data();               // Read the adc values
+        // temperature = ((float)temperature_count) / 333.87 + 21.0;  // Temperature in degrees Centigrade
     } else {
         update_rpy(q[0], q[1], q[2], q[3]);
     }
