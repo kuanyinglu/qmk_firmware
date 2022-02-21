@@ -65,6 +65,7 @@ uint8_t  OptLowPin         = OPT_ENC1;
 bool     debug_encoder     = false;
 bool     is_drag_scroll    = false;
 float    vx                = 0;
+float    vy                = 0;
 
 __attribute__((weak)) void process_wheel_user(report_mouse_t* mouse_report, int16_t h, int16_t v) {
     mouse_report->h = h;
@@ -104,9 +105,9 @@ __attribute__((weak)) void process_wheel(report_mouse_t* mouse_report) {
 }
 
 __attribute__((weak)) void process_mouse_user(report_mouse_t* mouse_report, int16_t x, int16_t y) {
-    // mouse_report->x = x;
-    mouse_report->x = getLinearAccX();
-    mouse_report->y = y;
+    // mouse_report->x = ;
+    mouse_report->x = (int16_t)vx;
+    mouse_report->y = (int16_t)vy;
 }
 
 __attribute__((weak)) void process_mouse(report_mouse_t* mouse_report) {
@@ -152,7 +153,24 @@ __attribute__((weak)) void process_mouse(report_mouse_t* mouse_report) {
 //         process_mouse_user(mouse_report, data.dx, -data.dy);
 //     }
     if (mpu9250_update()) {
-        vx = vx + getLinearAccX();
+        // vx = getGyroY() / 10; //left and right tilting
+        // vx = getGyroX() / 10; //front and back tilting
+        // vy = getGyroZ() / 10; //rotating
+        ////Gyromouse setting
+        // vx = -getGyroZ(); 
+        // vy = -getGyroX();
+        //////
+        vx = getLinearAccX();
+        vy = getLinearAccY() * 10;
+        
+        // print_bin32((int16_t)getLinearAccX());
+        // print(" ");
+        // print_hex32((int16_t)getLinearAccY());
+        // print(" ");
+        // print_hex32(getYaw());
+        // print(" ");
+        // print_hex32((int16_t)(getQuaternionW()));
+        // print("\n");
         process_mouse_user(mouse_report, 0, 0);
     }
 }
