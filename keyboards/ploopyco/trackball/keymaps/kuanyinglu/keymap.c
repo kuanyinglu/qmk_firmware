@@ -16,12 +16,22 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #include QMK_KEYBOARD_H
+#include "joystick.h"
 
 // safe range starts at `PLOOPY_SAFE_RANGE` instead.
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [0] = LAYOUT( /* Base */
         KC_BTN1, KC_BTN3, KC_BTN2,
-          KC_BTN4, KC_BTN5
+          DRAG_SCROLL, JOYSTICK_MODE
     ),
+};
+
+joystick_config_t joystick_axes[JOYSTICK_AXES_COUNT] = {
+    [0] = JOYSTICK_AXIS_VIRTUAL,
+    [1] = JOYSTICK_AXIS_VIRTUAL,
+    [2] = JOYSTICK_AXIS_VIRTUAL,
+    [3] = JOYSTICK_AXIS_VIRTUAL,
+    [4] = JOYSTICK_AXIS_VIRTUAL,
+    [5] = JOYSTICK_AXIS_VIRTUAL
 };

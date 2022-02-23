@@ -25,6 +25,7 @@
 #include "analog.h"
 #include "opt_encoder.h"
 #include "pointing_device.h"
+#include "joystick.h"
 #if defined(KEYBOARD_ploopyco_trackball_rev1)
 #    include "rev1.h"
 #elif defined(KEYBOARD_ploopyco_trackball_rev1_005)
@@ -62,6 +63,7 @@ enum ploopy_keycodes {
     DPI_CONFIG = SAFE_RANGE,
 #endif
     DRAG_SCROLL,
+    JOYSTICK_MODE,
 #ifdef VIA_ENABLE
     PLOOPY_SAFE_RANGE = SAFE_RANGE,
 #else

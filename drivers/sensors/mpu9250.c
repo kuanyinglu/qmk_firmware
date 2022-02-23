@@ -4,7 +4,6 @@
 #include "print.h"
 #include "mpu9250.h"
 #include "wait.h"
-#include <math.h>
 #include "timer.h"
 
 // enum class ACCEL_FS_SEL {
@@ -74,14 +73,13 @@
 #define READ_FLAG                            0x80
 
 // settings
-mpu9250_setting setting = { 1, 0, 1, 4, 3, 3, 1, 3};
+mpu9250_setting setting = { 0, 0, 1, 4, 3, 3, 1, 3};
 // TODO: this should be configured!!
-float acc_resolution = 0;                // scale resolutions per LSB for the sensors
+// float acc_resolution = 0;                // scale resolutions per LSB for the sensors
 float gyro_resolution = 0;               // scale resolutions per LSB for the sensors
-float mag_resolution = 0;                // scale resolutions per LSB for the sensors
 
 // Calibration Parameters
-float acc_bias[3] = {0, 0, 0};   // acc calibration value in ACCEL_FS_SEL: 2g
+// float acc_bias[3] = {0, 0, 0};   // acc calibration value in ACCEL_FS_SEL: 2g
 float gyro_bias[3] = {0, 0, 0};  // gyro calibration value in GYRO_FS_SEL: 250dps
 // float magnetic_declination = -7.51;  // Japan, 24th June
 uint8_t gravity_count = 1;
@@ -90,20 +88,17 @@ uint8_t gravity_count = 1;
 float self_test_result[6] = {0, 0, 0, 0, 0, 0};  // holds results of gyro and accelerometer self test
 
 // IMU Data
-float a[3] = {0, 0, 0};
-float g[3] = {0, 0, 0};
-float m[3] = {0, 0, 0};
-float q[4] = {1, 0, 0, 0};  // vector to hold quaternion
-float rpy[3] = {0, 0, 0};
-float lin_acc[3] = {0, 0, 0};  // linear acceleration (acceleration with gravity component subtracted)
-size_t n_filter_iter  = 1;
-double deltaT = 0;
-uint32_t newTime = 0;
+// float a[3] = {0, 0, 0};
+int8_t g[3] = {0, 0, 0};
+int16_t gyro_bias_int[3] = {0, 0, 0};  // gyro calibration value in GYRO_FS_SEL: 250dps
+// float gravity[3] = {0, 0, 0};
+// float rpy[3] = {0, 0, 0};
+// float lin_acc[3] = {0, 0, 0};  // linear acceleration (acceleration with gravity component subtracted)
+// size_t n_filter_iter  = 1;
 
 // Other settings
 bool has_connected = false;
-bool b_ahrs = true;
-bool b_verbose = true;
+bool b_verbose = false;
 
 bool mpu9250_setup(void) {
 
@@ -142,13 +137,10 @@ void sleep(bool b) {
     write_byte(PWR_MGMT_1, c);
 }
 
-void verbose(bool b) {
-    b_verbose = b;
-}
+// void verbose(bool b) {
+//     b_verbose = b;
+// }
 
-void ahrs(bool b) {
-    b_ahrs = b;
-}
 
 void calibrateAccelGyro(void) {
     calibrate_acc_gyro_impl();
@@ -174,20 +166,6 @@ bool isConnectedMPU9250(void) {
     return b;
 }
 
-// bool isConnectedAK8963(void) {
-//     write_byte(I2C_SLV0_ADDR, AK8963_ADDRESS | READ_FLAG); //Set the I2C slave addres of AK8963 and set for write
-//     write_byte(I2C_SLV0_REG, AK8963_WHO_AM_I); //I2C slave 0 register address from where to begin data transfer
-//     write_byte(I2C_SLV0_CTRL, 0x81); //Read 1 byte from the magnetometer
-//     wait_ms(10);
-//     uint8_t c = read_byte(EXT_SENS_DATA_00);
-//     if (b_verbose) {
-//         print("AK8963 WHO AM I = ");
-//         print_hex8(c);
-//         print("\n");
-//     }
-//     return (c == AK8963_WHOAMI_DEFAULT_VALUE);
-// }
-
 bool isSleeping(void) {
     uint8_t c = read_byte(PWR_MGMT_1);
     return (c & 0x40) == 0x40;
@@ -195,6 +173,29 @@ bool isSleeping(void) {
 
 bool available(void) {
     return has_connected && (read_byte(INT_STATUS) & 0x01);
+}
+void mpu9250_calibrate(void) {
+    //take a few measures to estimate gravity here
+    if (gravity_count < 65) {
+        // gravity[0] += a[0];
+        // gravity[1] += a[1];
+        // gravity[2] += a[2];
+        gyro_bias_int[0] += g[0];
+        gyro_bias_int[1] += g[1];
+        gyro_bias_int[2] += g[2];
+        gravity_count ++;
+        return;
+    }
+
+    if (gravity_count == 65) {
+        // gravity[0] = gravity[0] / 64;
+        // gravity[1] = gravity[1] / 64;
+        // gravity[2] = gravity[2] / 64;
+        gyro_bias_int[0] = gyro_bias_int[0] / 64;
+        gyro_bias_int[1] = gyro_bias_int[1] / 64;
+        gyro_bias_int[2] = gyro_bias_int[2] / 64;
+        gravity_count ++;
+    }
 }
 
 bool mpu9250_update(void) {
@@ -219,101 +220,45 @@ bool mpu9250_update(void) {
     // quat_filter.update(-a[0], a[1], a[2], g[0] * DEG_TO_RAD, -g[1] * DEG_TO_RAD, -g[2] * DEG_TO_RAD, m[1], -m[0], m[2], q);
     // DEG_TO_RAD 0.017453292519943295769236907684886
 
-    //take a few measures to estimate gravity here
-    if (gravity_count < 65) {
-        m[0] += a[0];
-        m[1] += a[1];
-        m[2] += a[2];
-        gyro_bias[0] += g[0];
-        gyro_bias[1] += g[1];
-        gyro_bias[2] += g[2];
-        gravity_count ++;
-        return false;
-    }
+    mpu9250_calibrate();
+    // float an = -a[0];
+    // float ae = +a[1];
+    // float ad = +a[2];
+    g[0] = (g[0] - gyro_bias[0]);
+    g[1] = (g[1] - gyro_bias[1]);
+    g[2] = (g[2] - gyro_bias[2]);
 
-    if (gravity_count == 65) {
-        m[0] = m[0] / 64;
-        m[1] = m[1] / 64;
-        m[2] = m[2] / 64;
-        gyro_bias[0] = gyro_bias[0] / 64;
-        gyro_bias[1] = gyro_bias[1] / 64;
-        gyro_bias[2] = gyro_bias[2] / 64;
-        gravity_count ++;
-    }
-        // print("MAG: ");
-        // print_hex16((uint16_t)m[0]);
-        // print(" ");
-        // print_hex16((uint16_t)m[1]);
-        // print(" ");
-        // print_hex16((uint16_t)m[2]);
-        // print("\n");
-        // print("ACC: ");
-        // print_hex16((uint16_t)lin_acc[0]);
-        // print(" ");
-        // print_hex16((uint16_t)lin_acc[1]);
-        // print(" ");
-        // print_hex16((uint16_t)lin_acc[2]);
-        // print("\n");
-
-    float an = -a[0];
-    float ae = +a[1];
-    float ad = +a[2];
-    float gn = +(g[0] - gyro_bias[0]) * 0.017453292519943295769236907684886;
-    float ge = -(g[1] - gyro_bias[1]) * 0.017453292519943295769236907684886;
-    float gd = -(g[2] - gyro_bias[2]) * 0.017453292519943295769236907684886;
-
-    update_rpy(an, ae, ad, gn, ge, gd);
+    // update_rpy(an, ae, ad, gn, ge, gd);
     return true;
 }
 
-float getRoll(void) { return rpy[0]; }
-float getPitch(void) { return rpy[1]; }
-float getYaw(void) { return rpy[2]; }
-
-float getEulerX(void) { return rpy[0]; }
-float getEulerY(void) { return -rpy[1]; }
-float getEulerZ(void) { return -rpy[2]; }
-
-float getQuaternionX(void) { return q[1]; }
-float getQuaternionY(void) { return q[2]; }
-float getQuaternionZ(void) { return q[3]; }
-float getQuaternionW(void) { return q[0]; }
-
-// float getAcc(uint8_t i) { return (i < 3) ? a[i] : 0; }
-// float getGyro(uint8_t i) { return (i < 3) ? g[i] : 0; }
-// float getMag(uint8_t i) { return (i < 3) ? m[i] : 0; }
-// float getLinearAcc(uint8_t i) { return (i < 3) ? lin_acc[i] : 0; }
-
-float getAccX(void) { return a[0]; }
-float getAccY(void) { return a[1]; }
-float getAccZ(void) { return a[2]; }
-float getGyroX(void) { return g[0]; }
-float getGyroY(void) { return g[1]; }
-float getGyroZ(void) { return g[2]; }
-float getMagX(void) { return m[0]; }
-float getMagY(void) { return m[1]; }
-float getMagZ(void) { return m[2]; }
-float getLinearAccX(void) { return lin_acc[0]; }
-float getLinearAccY(void) { return lin_acc[1]; }
-float getLinearAccZ(void) { return lin_acc[2]; }
+// float getAccX(void) { return a[0]; }
+// float getAccY(void) { return a[1]; }
+// float getAccZ(void) { return a[2]; }
+int8_t getGyroX(void) { return g[0]; }
+int8_t getGyroY(void) { return g[1]; }
+int8_t getGyroZ(void) { return g[2]; }
+// float getLinearAccX(void) { return lin_acc[0]; }
+// float getLinearAccY(void) { return lin_acc[1]; }
+// float getLinearAccZ(void) { return lin_acc[2]; }
 
 // float getAccBias(uint8_t i) { return (i < 3) ? acc_bias[i] : 0; }
 // float getGyroBias(uint8_t i) { return (i < 3) ? gyro_bias[i] : 0; }
 
-float getAccBiasX(void) { return acc_bias[0]; }
-float getAccBiasY(void) { return acc_bias[1]; }
-float getAccBiasZ(void) { return acc_bias[2]; }
+// float getAccBiasX(void) { return acc_bias[0]; }
+// float getAccBiasY(void) { return acc_bias[1]; }
+// float getAccBiasZ(void) { return acc_bias[2]; }
 float getGyroBiasX(void) { return gyro_bias[0]; }
 float getGyroBiasY(void) { return gyro_bias[1]; }
 float getGyroBiasZ(void) { return gyro_bias[2]; }
 
 
-void setAccBias(float x, float y, float z) {
-    acc_bias[0] = x;
-    acc_bias[1] = y;
-    acc_bias[2] = z;
-    write_accel_offset();
-}
+// void setAccBias(float x, float y, float z) {
+//     acc_bias[0] = x;
+//     acc_bias[1] = y;
+//     acc_bias[2] = z;
+//     write_accel_offset();
+// }
 void setGyroBias(float x, float y, float z) {
     gyro_bias[0] = x;
     gyro_bias[1] = y;
@@ -326,16 +271,13 @@ void setGyroBias(float x, float y, float z) {
 //     quaternion_select_filter(sel);
 // }
 
-void setFilterIterations(size_t n) {
-    if (n > 0) n_filter_iter = n;
-}
 
 bool selftest(void) {
     return self_test_impl();
 }
 
 void initMPU9250(void) {
-    acc_resolution = get_acc_resolution(setting.accel_fs_sel);
+    // acc_resolution = get_acc_resolution(setting.accel_fs_sel);
     gyro_resolution = get_gyro_resolution(setting.gyro_fs_sel);
     // mag_resolution = get_mag_resolution(setting.mag_output_bits);
 
@@ -352,7 +294,7 @@ void initMPU9250(void) {
     wait_ms(100);
 
     // disable I2C
-    write_byte(USER_CTRL, 0x20);// I2C Master mode and set I2C_IF_DIS to disable slave mode I2C bus
+    write_byte(USER_CTRL, 0x30);// I2C Master mode and set I2C_IF_DIS to disable slave mode I2C bus
     wait_ms(100);
 
     write_byte(I2C_MST_CTRL, 0x0D);// I2C Master mode and set I2C_IF_DIS to disable slave mode I2C bus
@@ -386,20 +328,20 @@ void initMPU9250(void) {
     write_byte(GYRO_CONFIG, c);          // Write new GYRO_CONFIG value to register
 
     // Set accelerometer full-scale range configuration
-    c = read_byte(ACCEL_CONFIG);     // get current ACCEL_CONFIG register value
-    c = c & ~0xE0;                                 // Clear self-test bits [7:5]
-    c = c & ~0x18;                                 // Clear ACCEL_FS_SEL bits [4:3]
-    c = c | ((uint8_t)(setting.accel_fs_sel) << 3);  // Set full scale range for the accelerometer
-    write_byte(ACCEL_CONFIG, c);     // Write new ACCEL_CONFIG register value
+    // c = read_byte(ACCEL_CONFIG);     // get current ACCEL_CONFIG register value
+    // c = c & ~0xE0;                                 // Clear self-test bits [7:5]
+    // c = c & ~0x18;                                 // Clear ACCEL_FS_SEL bits [4:3]
+    // c = c | ((uint8_t)(setting.accel_fs_sel) << 3);  // Set full scale range for the accelerometer
+    // write_byte(ACCEL_CONFIG, c);     // Write new ACCEL_CONFIG register value
 
     // Set accelerometer sample rate configuration
     // It is possible to get a 4 kHz sample rate from the accelerometer by choosing 1 for
     // accel_fchoice_b bit [3]; in this case the bandwidth is 1.13 kHz
-    c = read_byte(ACCEL_CONFIG2);        // get current ACCEL_CONFIG2 register value
-    c = c & ~0x0F;                                     // Clear accel_fchoice_b (bit 3) and A_DLPFG (bits [2:0])
-    c = c | (~(setting.accel_fchoice << 3) & 0x08);    // Set accel_fchoice_b to 1
-    c = c | ((uint8_t)(setting.accel_dlpf_cfg) & 0x07);  // Set accelerometer rate to 1 kHz and bandwidth to 41 Hz
-    write_byte(ACCEL_CONFIG2, c);        // Write new ACCEL_CONFIG2 register value
+    // c = read_byte(ACCEL_CONFIG2);        // get current ACCEL_CONFIG2 register value
+    // c = c & ~0x0F;                                     // Clear accel_fchoice_b (bit 3) and A_DLPFG (bits [2:0])
+    // c = c | (~(setting.accel_fchoice << 3) & 0x08);    // Set accel_fchoice_b to 1
+    // c = c | ((uint8_t)(setting.accel_dlpf_cfg) & 0x07);  // Set accelerometer rate to 1 kHz and bandwidth to 41 Hz
+    // write_byte(ACCEL_CONFIG2, c);        // Write new ACCEL_CONFIG2 register value
 
     // The accelerometer, gyro, and thermometer are set to 1 kHz sample rates,
     // but all these rates are further reduced by a factor of 5 to 200 Hz because of the SMPLRT_DIV setting
@@ -448,71 +390,38 @@ void initMPU9250(void) {
 //     lin_acc[2] = a[2] - a33;
 // }
 
-void update_rpy(float ax, float ay, float az, float gx, float gy, float gz) {
-    if (newTime == 0) {
-        deltaT = 0;
-    } else {
-        deltaT = timer_elapsed(newTime);
-    }
-    newTime = timer_read();
-    q[0] += 0.5f * (-q[1] * gx - q[2] * gy - q[3] * gz) * deltaT;
-    q[1] += 0.5f * (q[0] * gx + q[2] * gz - q[3] * gy) * deltaT;
-    q[2] += 0.5f * (q[0] * gy - q[1] * gz + q[3] * gx) * deltaT;
-    q[3] += 0.5f * (q[0] * gz + q[1] * gy - q[2] * gx) * deltaT;
-    float recipNorm = 1.0 / sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
-    q[0] *= recipNorm;
-    q[1] *= recipNorm;
-    q[2] *= recipNorm;
-    q[3] *= recipNorm;
-
-    float a12, a22, a31, a32, a33;  // rotation matrix coefficients for Euler angles and gravity components
-    a12 = 2.0f * (q[1] * q[2] + q[0] * q[3]);
-    a22 = q[0] * q[0] + q[1] * q[1] - q[2] * q[2] - q[3] * q[3];
-    a31 = 2.0f * (q[0] * q[1] + q[2] * q[3]);
-    a32 = 2.0f * (q[1] * q[3] - q[0] * q[2]);
-    a33 = q[0] * q[0] - q[1] * q[1] - q[2] * q[2] + q[3] * q[3];
-    rpy[0] = atan2f(a31, a33);
-    rpy[1] = -asinf(a32);
-    rpy[2] = atan2f(a12, a22);
-    if (rpy[2] >= +3.1415926535897932384626433832795f)
-        rpy[2] -= (2 * 3.1415926535897932384626433832795f);
-    else if (rpy[2] < -3.1415926535897932384626433832795f)
-        rpy[2] += (2 * 3.1415926535897932384626433832795f);
-
-    lin_acc[0] = ((a[0] + a31) * cos(rpy[0]) * cos(rpy[1])) - m[0];
-    lin_acc[1] = ((a[1] + a32) * cos(rpy[0]) * cos(rpy[2])) - m[1];
-    lin_acc[2] = ((a[2] - a33) * cos(rpy[1]) * cos(rpy[2])) - m[2];
-
-    rpy[0] *= 180.0f / 3.1415926535897932384626433832795;
-    rpy[1] *= 180.0f / 3.1415926535897932384626433832795;
-    rpy[2] *= 180.0f / 3.1415926535897932384626433832795;
-}
-
 void update_accel_gyro(void) {
-    int16_t raw_acc_gyro_data[7];        // used to read all 14 bytes at once from the MPU9250 accel/gyro
+    // int16_t raw_acc_gyro_data[7];        // used to read all 14 bytes at once from the MPU9250 accel/gyro
+    int8_t raw_acc_gyro_data[7];        // used to read all 14 bytes at once from the MPU9250 accel/gyro
     read_accel_gyro(raw_acc_gyro_data);  // INT cleared on any read
 
     // Now we'll calculate the accleration value into actual g's
-    a[0] = (float)raw_acc_gyro_data[0] * acc_resolution;  // get actual g value, this depends on scale being set
-    a[1] = (float)raw_acc_gyro_data[1] * acc_resolution;
-    a[2] = (float)raw_acc_gyro_data[2] * acc_resolution;
+    // a[0] = (float)raw_acc_gyro_data[0] * acc_resolution;  // get actual g value, this depends on scale being set
+    // a[1] = (float)raw_acc_gyro_data[1] * acc_resolution;
+    // a[2] = (float)raw_acc_gyro_data[2] * acc_resolution;
 
     // Calculate the gyro value into actual degrees per second
-    g[0] = (float)raw_acc_gyro_data[4] * gyro_resolution;  // get actual gyro value, this depends on scale being set
-    g[1] = (float)raw_acc_gyro_data[5] * gyro_resolution;
-    g[2] = (float)raw_acc_gyro_data[6] * gyro_resolution;
+    // g[0] = (float)raw_acc_gyro_data[0] * gyro_resolution;  // get actual gyro value, this depends on scale being set
+    // g[1] = (float)raw_acc_gyro_data[1] * gyro_resolution;
+    // g[2] = (float)raw_acc_gyro_data[2] * gyro_resolution;
+    g[0] = raw_acc_gyro_data[0];  // get actual gyro value, this depends on scale being set
+    g[1] = raw_acc_gyro_data[1];
+    g[2] = raw_acc_gyro_data[2];
 }
 
-void read_accel_gyro(int16_t* destination) {
-    uint8_t raw_data[14];                                                 // x/y/z accel register data stored here
-    read_bytes(ACCEL_XOUT_H, 14, &raw_data[0]);             // Read the 14 raw data registers into data array
-    destination[0] = ((int16_t)raw_data[0] << 8) | (int16_t)raw_data[1];  // Turn the MSB and LSB into a signed 16-bit value
-    destination[1] = ((int16_t)raw_data[2] << 8) | (int16_t)raw_data[3];
-    destination[2] = ((int16_t)raw_data[4] << 8) | (int16_t)raw_data[5];
-    destination[3] = ((int16_t)raw_data[6] << 8) | (int16_t)raw_data[7];
-    destination[4] = ((int16_t)raw_data[8] << 8) | (int16_t)raw_data[9];
-    destination[5] = ((int16_t)raw_data[10] << 8) | (int16_t)raw_data[11];
-    destination[6] = ((int16_t)raw_data[12] << 8) | (int16_t)raw_data[13];
+void read_accel_gyro(int8_t* destination) {
+    uint8_t raw_data[6];                                                 // x/y/z accel register data stored here
+    read_bytes(GYRO_XOUT_H, 6, &raw_data[0]);             // Read the 14 raw data registers into data array
+    // destination[0] = ((int16_t)raw_data[0] << 8) | (int16_t)raw_data[1];  // Turn the MSB and LSB into a signed 16-bit value
+    // destination[1] = ((int16_t)raw_data[2] << 8) | (int16_t)raw_data[3];
+    // destination[2] = ((int16_t)raw_data[4] << 8) | (int16_t)raw_data[5];
+    // destination[3] = ((int16_t)raw_data[6] << 8) | (int16_t)raw_data[7];
+    // destination[4] = ((int16_t)raw_data[8] << 8) | (int16_t)raw_data[9];
+    // destination[5] = ((int16_t)raw_data[10] << 8) | (int16_t)raw_data[11];
+    // destination[6] = ((int16_t)raw_data[12] << 8) | (int16_t)raw_data[13];
+    destination[0] = (int8_t)raw_data[0];  // Turn the MSB and LSB into a signed 16-bit value
+    destination[1] = (int8_t)raw_data[2];
+    destination[2] = (int8_t)raw_data[4];
 }
 
 // Function which accumulates gyro and accelerometer data after device initialization. It calculates the average
@@ -521,8 +430,8 @@ void read_accel_gyro(int16_t* destination) {
 // GYRO_FS_SEL: 250dps (maximum sensitivity)
 void calibrate_acc_gyro_impl(void) {
     set_acc_gyro_to_calibration();
-    collect_acc_gyro_data_to(acc_bias, gyro_bias);
-    write_accel_offset();
+    collect_acc_gyro_data_to(gyro_bias);
+    // write_accel_offset();
     write_gyro_offset();
     wait_ms(100);
     initMPU9250();
@@ -561,7 +470,8 @@ void set_acc_gyro_to_calibration(void) {
     wait_ms(40);
 }
 
-void collect_acc_gyro_data_to(float* a_bias, float* g_bias) {
+// void collect_acc_gyro_data_to(float* a_bias, float* g_bias) {
+void collect_acc_gyro_data_to(float* g_bias) {
     // At end of sample accumulation, turn off FIFO sensor read
     uint8_t data[12];                                    // data array to hold accelerometer and gyro x, y, z, data
     write_byte(FIFO_EN, 0x00);             // Disable gyro and accelerometer sensors for FIFO
@@ -570,82 +480,83 @@ void collect_acc_gyro_data_to(float* a_bias, float* g_bias) {
     uint16_t packet_count = fifo_count / 12;  // How many sets of full gyro and accelerometer data for averaging
 
     for (uint16_t ii = 0; ii < packet_count; ii++) {
-        int16_t accel_temp[3] = {0, 0, 0}, gyro_temp[3] = {0, 0, 0};
+        // int16_t accel_temp[3] = {0, 0, 0}, gyro_temp[3] = {0, 0, 0};
+        int16_t gyro_temp[3] = {0, 0, 0};
         read_bytes(FIFO_R_W, 12, &data[0]);              // read data for averaging
-        accel_temp[0] = (int16_t)(((int16_t)data[0] << 8) | data[1]);  // Form signed 16-bit integer for each sample in FIFO
-        accel_temp[1] = (int16_t)(((int16_t)data[2] << 8) | data[3]);
-        accel_temp[2] = (int16_t)(((int16_t)data[4] << 8) | data[5]);
+        // accel_temp[0] = (int16_t)(((int16_t)data[0] << 8) | data[1]);  // Form signed 16-bit integer for each sample in FIFO
+        // accel_temp[1] = (int16_t)(((int16_t)data[2] << 8) | data[3]);
+        // accel_temp[2] = (int16_t)(((int16_t)data[4] << 8) | data[5]);
         gyro_temp[0] = (int16_t)(((int16_t)data[6] << 8) | data[7]);
         gyro_temp[1] = (int16_t)(((int16_t)data[8] << 8) | data[9]);
         gyro_temp[2] = (int16_t)(((int16_t)data[10] << 8) | data[11]);
 
-        a_bias[0] += (float)accel_temp[0];  // Sum individual signed 16-bit biases to get accumulated signed 32-bit biases
-        a_bias[1] += (float)accel_temp[1];
-        a_bias[2] += (float)accel_temp[2];
+        // a_bias[0] += (float)accel_temp[0];  // Sum individual signed 16-bit biases to get accumulated signed 32-bit biases
+        // a_bias[1] += (float)accel_temp[1];
+        // a_bias[2] += (float)accel_temp[2];
         g_bias[0] += (float)gyro_temp[0];
         g_bias[1] += (float)gyro_temp[1];
         g_bias[2] += (float)gyro_temp[2];
     }
-    a_bias[0] /= (float)packet_count;  // Normalize sums to get average count biases
-    a_bias[1] /= (float)packet_count;
-    a_bias[2] /= (float)packet_count;
+    // a_bias[0] /= (float)packet_count;  // Normalize sums to get average count biases
+    // a_bias[1] /= (float)packet_count;
+    // a_bias[2] /= (float)packet_count;
     g_bias[0] /= (float)packet_count;
     g_bias[1] /= (float)packet_count;
     g_bias[2] /= (float)packet_count;
 
-    if (a_bias[2] > 0L) {
-        a_bias[2] -= (float)CALIB_ACCEL_SENSITIVITY;
-    }  // Remove gravity from the z-axis accelerometer bias calculation
-    else {
-        a_bias[2] += (float)CALIB_ACCEL_SENSITIVITY;
-    }
+    // if (a_bias[2] > 0L) {
+    //     a_bias[2] -= (float)CALIB_ACCEL_SENSITIVITY;
+    // }  // Remove gravity from the z-axis accelerometer bias calculation
+    // else {
+    //     a_bias[2] += (float)CALIB_ACCEL_SENSITIVITY;
+    // }
 }
 
-void write_accel_offset(void) {
-    // Construct the accelerometer biases for push to the hardware accelerometer bias registers. These registers contain
-    // factory trim values which must be added to the calculated accelerometer biases; on boot up these registers will hold
-    // non-zero values. In addition, bit 0 of the lower byte must be preserved since it is used for temperature
-    // compensation calculations. Accelerometer bias registers expect bias input as 2048 LSB per g, so that
-    // the accelerometer biases calculated above must be divided by 8.
+// void write_accel_offset(void) {
+//     // Construct the accelerometer biases for push to the hardware accelerometer bias registers. These registers contain
+//     // factory trim values which must be added to the calculated accelerometer biases; on boot up these registers will hold
+//     // non-zero values. In addition, bit 0 of the lower byte must be preserved since it is used for temperature
+//     // compensation calculations. Accelerometer bias registers expect bias input as 2048 LSB per g, so that
+//     // the accelerometer biases calculated above must be divided by 8.
 
-    uint8_t read_data[2] = {0};
-    int16_t acc_bias_reg[3] = {0, 0, 0};                      // A place to hold the factory accelerometer trim biases
-    read_bytes(XA_OFFSET_H, 2, &read_data[0]);  // Read factory accelerometer trim values
-    acc_bias_reg[0] = ((int16_t)read_data[0] << 8) | read_data[1];
-    read_bytes(YA_OFFSET_H, 2, &read_data[0]);
-    acc_bias_reg[1] = ((int16_t)read_data[0] << 8) | read_data[1];
-    read_bytes(ZA_OFFSET_H, 2, &read_data[0]);
-    acc_bias_reg[2] = ((int16_t)read_data[0] << 8) | read_data[1];
+//     uint8_t read_data[2] = {0};
+//     int16_t acc_bias_reg[3] = {0, 0, 0};                      // A place to hold the factory accelerometer trim biases
+//     read_bytes(XA_OFFSET_H, 2, &read_data[0]);  // Read factory accelerometer trim values
+//     acc_bias_reg[0] = ((int16_t)read_data[0] << 8) | read_data[1];
+//     read_bytes(YA_OFFSET_H, 2, &read_data[0]);
+//     acc_bias_reg[1] = ((int16_t)read_data[0] << 8) | read_data[1];
+//     read_bytes(ZA_OFFSET_H, 2, &read_data[0]);
+//     acc_bias_reg[2] = ((int16_t)read_data[0] << 8) | read_data[1];
 
-    int16_t mask_bit[3] = {1, 1, 1};  // Define array to hold mask bit for each accelerometer bias axis
-    for (int i = 0; i < 3; i++) {
-        if (acc_bias_reg[i] % 2) {
-            mask_bit[i] = 0;
-        }
-        acc_bias_reg[i] -= (int16_t)acc_bias[i] >> 3;  // Subtract calculated averaged accelerometer bias scaled to 2048 LSB/g
-        if (mask_bit[i]) {
-            acc_bias_reg[i] = acc_bias_reg[i] & ~mask_bit[i];  // Preserve temperature compensation bit
-        } else {
-            acc_bias_reg[i] = acc_bias_reg[i] | 0x0001;  // Preserve temperature compensation bit
-        }
-    }
+//     int16_t mask_bit[3] = {1, 1, 1};  // Define array to hold mask bit for each accelerometer bias axis
+//     for (int i = 0; i < 3; i++) {
+//         if (acc_bias_reg[i] % 2) {
+//             mask_bit[i] = 0;
+//         }
+//         acc_bias_reg[i] -= (int16_t)acc_bias[i] >> 3;  // Subtract calculated averaged accelerometer bias scaled to 2048 LSB/g
+//         if (mask_bit[i]) {
+//             acc_bias_reg[i] = acc_bias_reg[i] & ~mask_bit[i];  // Preserve temperature compensation bit
+//         } else {
+//             acc_bias_reg[i] = acc_bias_reg[i] | 0x0001;  // Preserve temperature compensation bit
+//         }
+//     }
 
-    uint8_t write_data[6] = {0};
-    write_data[0] = (acc_bias_reg[0] >> 8) & 0xFF;
-    write_data[1] = (acc_bias_reg[0]) & 0xFF;
-    write_data[2] = (acc_bias_reg[1] >> 8) & 0xFF;
-    write_data[3] = (acc_bias_reg[1]) & 0xFF;
-    write_data[4] = (acc_bias_reg[2] >> 8) & 0xFF;
-    write_data[5] = (acc_bias_reg[2]) & 0xFF;
+//     uint8_t write_data[6] = {0};
+//     write_data[0] = (acc_bias_reg[0] >> 8) & 0xFF;
+//     write_data[1] = (acc_bias_reg[0]) & 0xFF;
+//     write_data[2] = (acc_bias_reg[1] >> 8) & 0xFF;
+//     write_data[3] = (acc_bias_reg[1]) & 0xFF;
+//     write_data[4] = (acc_bias_reg[2] >> 8) & 0xFF;
+//     write_data[5] = (acc_bias_reg[2]) & 0xFF;
 
-    // Push accelerometer biases to hardware registers
-    write_byte(XA_OFFSET_H, write_data[0]);
-    write_byte(XA_OFFSET_L, write_data[1]);
-    write_byte(YA_OFFSET_H, write_data[2]);
-    write_byte(YA_OFFSET_L, write_data[3]);
-    write_byte(ZA_OFFSET_H, write_data[4]);
-    write_byte(ZA_OFFSET_L, write_data[5]);
-}
+//     // Push accelerometer biases to hardware registers
+//     write_byte(XA_OFFSET_H, write_data[0]);
+//     write_byte(XA_OFFSET_L, write_data[1]);
+//     write_byte(YA_OFFSET_H, write_data[2]);
+//     write_byte(YA_OFFSET_L, write_data[3]);
+//     write_byte(ZA_OFFSET_H, write_data[4]);
+//     write_byte(ZA_OFFSET_L, write_data[5]);
+// }
 
 void write_gyro_offset(void) {
     // Construct the gyro biases for push to the hardware gyro bias registers, which are reset to zero upon device startup

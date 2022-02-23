@@ -15,9 +15,9 @@ bool mpu9250_setup(void);
 
 void sleep(bool b);
 
-void verbose(bool b);
+// void verbose(bool b);
 
-void ahrs(bool b);
+// void ahrs(bool b);
 
 void calibrateAccelGyro(void);
 
@@ -34,68 +34,48 @@ bool isSleeping(void);
 bool available(void);
 
 bool mpu9250_update(void);
+void mpu9250_calibrate(void);
 
-float getRoll(void);
-float getPitch(void);
-float getYaw(void);
-
-float getEulerX(void);
-float getEulerY(void);
-float getEulerZ(void);
-
-float getQuaternionX(void);
-float getQuaternionY(void);
-float getQuaternionZ(void);
-float getQuaternionW(void);
-
-// float getAcc(uint8_t i);
-// float getGyro(uint8_t i);
-// float getMag(uint8_t i);
-// float getLinearAcc(uint8_t i);
-
-float getAccX(void);
-float getAccY(void);
-float getAccZ(void);
-float getGyroX(void);
-float getGyroY(void);
-float getGyroZ(void);
-float getMagX(void);
-float getMagY(void);
-float getMagZ(void);
-float getLinearAccX(void);
-float getLinearAccY(void);
-float getLinearAccZ(void);
+// float getAccX(void);
+// float getAccY(void);
+// float getAccZ(void);
+int8_t getGyroX(void);
+int8_t getGyroY(void);
+int8_t getGyroZ(void);
+// float getLinearAccX(void);
+// float getLinearAccY(void);
+// float getLinearAccZ(void);
 
 // float getAccBias(uint8_t i);
 // float getGyroBias(uint8_t i);
 // float getMagBias(uint8_t i);
 // float getMagScale(uint8_t i);
 
-float getAccBiasX(void);
-float getAccBiasY(void);
-float getAccBiasZ(void);
+// float getAccBiasX(void);
+// float getAccBiasY(void);
+// float getAccBiasZ(void);
 float getGyroBiasX(void);
 float getGyroBiasY(void);
 float getGyroBiasZ(void);
 
-void setAccBias(const float x, const float y, const float z);
+// void setAccBias(const float x, const float y, const float z);
 void setGyroBias(float x, float y, float z);
 // void setMagneticDeclination(float d);
-void selectFilter(uint8_t sel);
-void setFilterIterations(size_t n);
+// void selectFilter(uint8_t sel);
 bool selftest(void);
 void initMPU9250(void);
 // void update_rpy(float qw, float qx, float qy, float qz);
-void update_rpy(float ax, float ay, float az, float gx, float gy, float gz);
+// void update_rpy(float ax, float ay, float az, float gx, float gy, float gz);
 void update_accel_gyro(void);
-void read_accel_gyro(int16_t* destination);
+void read_accel_gyro(int8_t* destination);
 // Function which accumulates gyro and accelerometer data after device initialization. It calculates the average
 // of the at-rest readings and then loads the resulting offsets into accelerometer and gyro bias registers.
 // ACCEL_FS_SEL: 2g (maximum sensitivity)
 // GYRO_FS_SEL: 250dps (maximum sensitivity)
 void calibrate_acc_gyro_impl(void);
 void set_acc_gyro_to_calibration(void);
-void collect_acc_gyro_data_to(float* a_bias, float* g_bias);
+// void collect_acc_gyro_data_to(float* a_bias, float* g_bias);
+void collect_acc_gyro_data_to(float* g_bias);
 void write_accel_offset(void);
 void write_gyro_offset(void);
 void collect_mag_data_to(float* m_bias, float* m_scale);

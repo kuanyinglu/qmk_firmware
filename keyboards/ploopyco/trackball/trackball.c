@@ -33,7 +33,7 @@
 #ifndef PLOOPY_DPI_OPTIONS
 #    define PLOOPY_DPI_OPTIONS { 1200, 1600, 2400 }
 #    ifndef PLOOPY_DPI_DEFAULT
-#        define PLOOPY_DPI_DEFAULT 1
+#        define PLOOPY_DPI_DEFAULT 0
 #    endif
 #endif
 #ifndef PLOOPY_DPI_DEFAULT
@@ -64,8 +64,14 @@ uint16_t lastMidClick      = 0;      // Stops scrollwheel from being read if it 
 uint8_t  OptLowPin         = OPT_ENC1;
 bool     debug_encoder     = false;
 bool     is_drag_scroll    = false;
-float    vx                = 0;
-float    vy                = 0;
+bool     is_joystick       = false;
+int16_t     opt_chg       = 0;
+int16_t     mh       = 0;
+int16_t     mx       = 0;
+int16_t     my       = 0;
+int16_t    gx = 0;
+int16_t gy = 0;
+int16_t gz = 0;
 
 __attribute__((weak)) void process_wheel_user(report_mouse_t* mouse_report, int16_t h, int16_t v) {
     mouse_report->h = h;
@@ -94,84 +100,68 @@ __attribute__((weak)) void process_wheel(report_mouse_t* mouse_report) {
     }
 
     lastScroll  = timer_read();
-    // uint16_t p1 = adc_read(OPT_ENC1_MUX);
-    // uint16_t p2 = adc_read(OPT_ENC2_MUX);
+    uint16_t p1 = adc_read(OPT_ENC1_MUX);
+    uint16_t p2 = adc_read(OPT_ENC2_MUX);
     // if (debug_encoder) dprintf("OPT1: %d, OPT2: %d\n", p1, p2);
 
-    // int dir = opt_encoder_handler(p1, p2);
-    return;
-    // if (dir == 0) return;
-    // process_wheel_user(mouse_report, mouse_report->h, (int)(mouse_report->v + (dir * OPT_SCALE)));
+    opt_chg = (int16_t)opt_encoder_handler(p1, p2);
+    if (opt_chg == 0) return;
+    if (!is_joystick) {
+        process_wheel_user(mouse_report, mouse_report->h, (int)(mouse_report->v + (opt_chg * OPT_SCALE)));
+    }
 }
 
 __attribute__((weak)) void process_mouse_user(report_mouse_t* mouse_report, int16_t x, int16_t y) {
-    // mouse_report->x = ;
-    mouse_report->x = (int16_t)vx;
-    mouse_report->y = (int16_t)vy;
+    mouse_report->x = x;
+    mouse_report->y = y;
 }
 
 __attribute__((weak)) void process_mouse(report_mouse_t* mouse_report) {
-//     report_pmw_t data = pmw_read_burst();
-//     if (data.isOnSurface && data.isMotion) {
-//         // Reset timer if stopped moving
-//         if (!data.isMotion) {
-//             if (MotionStart != 0) MotionStart = 0;
-//             return;
-//         }
+    report_pmw_t data = pmw_read_burst();
+    if (data.isOnSurface && data.isMotion) {
+        // Reset timer if stopped moving
+        if (!data.isMotion) {
+            if (MotionStart != 0) MotionStart = 0;
+            return;
+        }
 
-//         // Set timer if new motion
-//         if ((MotionStart == 0) && data.isMotion) {
-//             if (debug_mouse) dprintf("Starting motion.\n");
-//             MotionStart = timer_read();
-//         }
+        // Set timer if new motion
+        if ((MotionStart == 0) && data.isMotion) {
+            if (debug_mouse) dprintf("Starting motion.\n");
+            MotionStart = timer_read();
+        }
 
-//         if (debug_mouse) {
-//             dprintf("Delt] d: %d t: %u\n", abs(data.dx) + abs(data.dy), MotionStart);
-//         }
-//         if (debug_mouse) {
-//             dprintf("Pre ] X: %d, Y: %d\n", data.dx, data.dy);
-//         }
-// #if defined(PROFILE_LINEAR)
-//         float scale = float(timer_elaspsed(MotionStart)) / 1000.0;
-//         data.dx *= scale;
-//         data.dy *= scale;
-// #elif defined(PROFILE_INVERSE)
-//         // TODO
-// #else
-//         // no post processing
-// #endif
-//         // apply multiplier
-//         // data.dx *= mouse_multiplier;
-//         // data.dy *= mouse_multiplier;
+        if (debug_mouse) {
+            dprintf("Delt] d: %d t: %u\n", abs(data.dx) + abs(data.dy), MotionStart);
+        }
+        if (debug_mouse) {
+            dprintf("Pre ] X: %d, Y: %d\n", data.dx, data.dy);
+        }
+#if defined(PROFILE_LINEAR)
+        float scale = float(timer_elaspsed(MotionStart)) / 1000.0;
+        data.dx *= scale;
+        data.dy *= scale;
+#elif defined(PROFILE_INVERSE)
+        // TODO
+#else
+        // no post processing
+#endif
+        // apply multiplier
+        // data.dx *= mouse_multiplier;
+        // data.dy *= mouse_multiplier;
 
-//         // Wrap to HID size
-//         data.dx = constrain(data.dx, -127, 127);
-//         data.dy = constrain(data.dy, -127, 127);
-//         if (debug_mouse) dprintf("Cons] X: %d, Y: %d\n", data.dx, data.dy);
-//         // dprintf("Elapsed:%u, X: %f Y: %\n", i, pgm_read_byte(firmware_data+i));
-
-//         process_mouse_user(mouse_report, data.dx, -data.dy);
-//     }
-    if (mpu9250_update()) {
-        // vx = getGyroY() / 10; //left and right tilting
-        // vx = getGyroX() / 10; //front and back tilting
-        // vy = getGyroZ() / 10; //rotating
-        ////Gyromouse setting
-        // vx = -getGyroZ(); 
-        // vy = -getGyroX();
-        //////
-        vx = getLinearAccX();
-        vy = getLinearAccY() * 10;
-        
-        // print_bin32((int16_t)getLinearAccX());
-        // print(" ");
-        // print_hex32((int16_t)getLinearAccY());
-        // print(" ");
-        // print_hex32(getYaw());
-        // print(" ");
-        // print_hex32((int16_t)(getQuaternionW()));
-        // print("\n");
-        process_mouse_user(mouse_report, 0, 0);
+        // Wrap to HID size
+        data.dx = constrain(data.dx, -127, 127);
+        data.dy = constrain(data.dy, -127, 127);
+        mx += constrain(data.dx, -30, 30);
+        mx = constrain(mx, -127, 127);
+        my += constrain(data.dy, -30, 30);
+        my = constrain(my, -127, 127);
+        if (debug_mouse) dprintf("Cons] X: %d, Y: %d\n", data.dx, data.dy);
+        // dprintf("Elapsed:%u, X: %f Y: %\n", i, pgm_read_byte(firmware_data+i));
+        if (!is_joystick) {
+            process_mouse_user(mouse_report, data.dx, -data.dy);
+        }
     }
 }
 
@@ -198,7 +188,7 @@ bool process_record_kb(uint16_t keycode, keyrecord_t* record) {
 
     if (keycode == DRAG_SCROLL) {
 #ifndef PLOOPY_DRAGSCROLL_MOMENTARY
-        if (record->event.pressed)
+        if ((record->event.pressed) && (record->event.key.col==1))
 #endif
         {
             is_drag_scroll ^= 1;
@@ -208,6 +198,16 @@ bool process_record_kb(uint16_t keycode, keyrecord_t* record) {
 #else
         pmw_set_cpi(is_drag_scroll ? (dpi_array[keyboard_config.dpi_config] * PLOOPY_DRAGSCROLL_MULTIPLIER) : dpi_array[keyboard_config.dpi_config]);
 #endif
+    }
+    if (keycode == JOYSTICK_MODE && record->event.pressed)
+    {
+        is_joystick ^= 1;
+        mx = 0;
+        my = 0;
+        mh = 0;
+        gx = 0;
+        gy = 0;
+        gz = 0;
     }
 
 /* If Mousekeys is disabled, then use handle the mouse button
@@ -265,33 +265,60 @@ void keyboard_pre_init_kb(void) {
 
 void pointing_device_init(void) {
     // initialize ball sensor
-    // pmw_spi_init();
+    pmw_spi_init();
     mpu9250_setup();
     // calibrateAccelGyro();
     // initialize the scroll wheel's optical encoder
-    // opt_encoder_init();
+    opt_encoder_init();
 }
 
 
 void pointing_device_task(void) {
     report_mouse_t mouse_report = pointing_device_get_report();
-    // process_wheel(&mouse_report);
+    process_wheel(&mouse_report);
     process_mouse(&mouse_report);
 
-    if (is_drag_scroll) {
-        mouse_report.h = mouse_report.x;
+    if (!is_joystick) {
+        if (is_drag_scroll) {
+            mouse_report.h = mouse_report.x;
 #ifdef PLOOPY_DRAGSCROLL_INVERT
-        // Invert vertical scroll direction
-        mouse_report.v = -mouse_report.y;
+            // Invert vertical scroll direction
+            mouse_report.v = -mouse_report.y;
 #else
-        mouse_report.v = mouse_report.y;
+            mouse_report.v = mouse_report.y;
 #endif
-        mouse_report.x = 0;
-        mouse_report.y = 0;
+            mouse_report.x = 0;
+            mouse_report.y = 0;
+        }
     }
 
     pointing_device_set_report(mouse_report);
     pointing_device_send();
+}
+
+void joystick_task(void) {
+    if (is_joystick) {
+        if (mpu9250_update()) {
+            gx += getGyroX() / 2;
+            gx = constrain(gx, -127, 127);
+            gy += getGyroY() / 2;
+            gy = constrain(gy, -127, 127);
+            gz += -getGyroZ() / 2;
+            gz = constrain(gz, -127, 127);
+            joystick_status.axes[3] = gy;
+            joystick_status.axes[4] = gx;
+            joystick_status.axes[5] = gz;
+
+        }
+        joystick_status.axes[0] = constrain(mx, -127, 127);
+        joystick_status.axes[1] = constrain(-my, -127, 127);
+        mh += opt_chg * 5;
+        mh = constrain(mh, -127, 127);
+        joystick_status.axes[2] = mh;
+        send_joystick_packet(&joystick_status);
+    } else {
+        mpu9250_calibrate();
+    }
 }
 
 void eeconfig_init_kb(void) {
@@ -311,7 +338,7 @@ void matrix_init_kb(void) {
 }
 
 void keyboard_post_init_kb(void) {
-    // pmw_set_cpi(dpi_array[keyboard_config.dpi_config]);
+    pmw_set_cpi(dpi_array[keyboard_config.dpi_config]);
 
     keyboard_post_init_user();
 }

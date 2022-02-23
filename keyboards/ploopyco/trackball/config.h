@@ -38,11 +38,14 @@
 //#define MATRIX_HAS_GHOST
 
 /* disable action features */
-//#define NO_ACTION_LAYER
+#define NO_ACTION_LAYER
 #define NO_ACTION_TAPPING
 #define NO_ACTION_ONESHOT
 #define NO_ACTION_MACRO
 #define NO_ACTION_FUNCTION
+#define PLOOPY_DRAGSCROLL_MOMENTARY
+#define PLOOPY_DRAGSCROLL_FIXED
+#define PLOOPY_DRAGSCROLL_INVERT
 
 /* Much more so than a keyboard, speed matters for a mouse. So we'll go for as high
    a polling rate as possible. */
@@ -57,6 +60,9 @@
 
 // If board has a debug LED, you can enable it by defining this
 // #define DEBUG_LED_PIN F7
+#define JOYSTICK_AXES_COUNT 6
+#define JOYSTICK_BUTTON_COUNT 1
+
 
 /* PMW3360 Settings */
 #define PMW3360_CS_PIN             B0
