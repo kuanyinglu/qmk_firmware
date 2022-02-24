@@ -66,6 +66,7 @@ bool     debug_encoder     = false;
 bool     is_drag_scroll    = false;
 bool     is_joystick       = false;
 int16_t     opt_chg       = 0;
+uint16_t lastJoystickTime = 0;
 int16_t     mh       = 0;
 int16_t     mx       = 0;
 int16_t     my       = 0;
@@ -106,6 +107,8 @@ __attribute__((weak)) void process_wheel(report_mouse_t* mouse_report) {
 
     opt_chg = (int16_t)opt_encoder_handler(p1, p2);
     if (opt_chg == 0) return;
+
+    mh += opt_chg * 8;
     if (!is_joystick) {
         process_wheel_user(mouse_report, mouse_report->h, (int)(mouse_report->v + (opt_chg * OPT_SCALE)));
     }
@@ -153,9 +156,9 @@ __attribute__((weak)) void process_mouse(report_mouse_t* mouse_report) {
         // Wrap to HID size
         data.dx = constrain(data.dx, -127, 127);
         data.dy = constrain(data.dy, -127, 127);
-        mx += constrain(data.dx, -30, 30);
+        mx += constrain(data.dx, -15, 15);
         mx = constrain(mx, -127, 127);
-        my += constrain(data.dy, -30, 30);
+        my += constrain(data.dy, -15, 15);
         my = constrain(my, -127, 127);
         if (debug_mouse) dprintf("Cons] X: %d, Y: %d\n", data.dx, data.dy);
         // dprintf("Elapsed:%u, X: %f Y: %\n", i, pgm_read_byte(firmware_data+i));
@@ -202,12 +205,6 @@ bool process_record_kb(uint16_t keycode, keyrecord_t* record) {
     if (keycode == JOYSTICK_MODE && record->event.pressed)
     {
         is_joystick ^= 1;
-        mx = 0;
-        my = 0;
-        mh = 0;
-        gx = 0;
-        gy = 0;
-        gz = 0;
     }
 
 /* If Mousekeys is disabled, then use handle the mouse button
@@ -299,25 +296,40 @@ void pointing_device_task(void) {
 void joystick_task(void) {
     if (is_joystick) {
         if (mpu9250_update()) {
-            gx += getGyroX() / 2;
-            gx = constrain(gx, -127, 127);
-            gy += getGyroY() / 2;
-            gy = constrain(gy, -127, 127);
-            gz += -getGyroZ() / 2;
-            gz = constrain(gz, -127, 127);
-            joystick_status.axes[3] = gy;
-            joystick_status.axes[4] = gx;
-            joystick_status.axes[5] = gz;
+            uint8_t delta = timer_elapsed(lastJoystickTime);
+            lastJoystickTime  = timer_read();
+            gx += (int16_t)getGyroX() * delta / 8;
+            gx = constrain(gx, -1016, 1016);
+            gy += (int16_t)getGyroY() * delta / 8;
+            gy = constrain(gy, -1016, 1016);
+            gz += (int16_t)(-getGyroZ()) * delta / 8;
+            gz = constrain(gz, -1016, 1016);
+            joystick_status.axes[3] = constrain(gy / 8, -127, 127);
+            joystick_status.axes[4] = constrain(gx / 8, -127, 127);
+            joystick_status.axes[5] = constrain(gz / 8, -127, 127);
 
         }
         joystick_status.axes[0] = constrain(mx, -127, 127);
         joystick_status.axes[1] = constrain(-my, -127, 127);
-        mh += opt_chg * 5;
-        mh = constrain(mh, -127, 127);
-        joystick_status.axes[2] = mh;
+        joystick_status.axes[2] = constrain(mh, -127, 127);
         send_joystick_packet(&joystick_status);
     } else {
         mpu9250_calibrate();
+        if (mx != 0 || my != 0 || mh != 0 || gx != 0 || gy != 0 || gz != 0) {
+            mx = 0;
+            my = 0;
+            mh = 0;
+            gx = 0;
+            gy = 0;
+            gz = 0;
+            joystick_status.axes[0] = 0;
+            joystick_status.axes[1] = 0;
+            joystick_status.axes[2] = 0;
+            joystick_status.axes[3] = 0;
+            joystick_status.axes[4] = 0;
+            joystick_status.axes[5] = 0;
+            send_joystick_packet(&joystick_status);
+        }
     }
 }
 
