@@ -66,4 +66,3 @@
 
 /* PMW3360 Settings */
 #define PMW3360_CS_PIN             B0
-#    define SPI_SS2_PIN            E2

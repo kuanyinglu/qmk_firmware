@@ -24,6 +24,6 @@ JOYSTICK_ENABLE = yes
 JOYSTICK_DRIVER = digital
 
 QUANTUM_LIB_SRC += analog.c spi_master.c
-SRC += drivers/sensors/pmw3360.c opt_encoder.c drivers/sensors/mpu9250.c
+SRC += drivers/sensors/pmw3360.c opt_encoder.c
 
 DEFAULT_FOLDER = ploopyco/trackball/rev1_005

@@ -175,26 +175,28 @@ bool available(void) {
     return has_connected && (read_byte(INT_STATUS) & 0x01);
 }
 void mpu9250_calibrate(void) {
-    //take a few measures to estimate gravity here
-    if (gravity_count < 65) {
-        // gravity[0] += a[0];
-        // gravity[1] += a[1];
-        // gravity[2] += a[2];
-        gyro_bias_int[0] += g[0];
-        gyro_bias_int[1] += g[1];
-        gyro_bias_int[2] += g[2];
-        gravity_count ++;
-        return;
-    }
+    if (gravity_count < 66 && available()) {
+        //take a few measures to estimate gravity here
+        if (gravity_count < 65) {
+            // gravity[0] += a[0];
+            // gravity[1] += a[1];
+            // gravity[2] += a[2];
+            gyro_bias_int[0] += g[0];
+            gyro_bias_int[1] += g[1];
+            gyro_bias_int[2] += g[2];
+            gravity_count ++;
+            return;
+        }
 
-    if (gravity_count == 65) {
-        // gravity[0] = gravity[0] / 64;
-        // gravity[1] = gravity[1] / 64;
-        // gravity[2] = gravity[2] / 64;
-        gyro_bias_int[0] = gyro_bias_int[0] / 64;
-        gyro_bias_int[1] = gyro_bias_int[1] / 64;
-        gyro_bias_int[2] = gyro_bias_int[2] / 64;
-        gravity_count ++;
+        if (gravity_count == 65) {
+            // gravity[0] = gravity[0] / 64;
+            // gravity[1] = gravity[1] / 64;
+            // gravity[2] = gravity[2] / 64;
+            gyro_bias_int[0] = gyro_bias_int[0] / 64;
+            gyro_bias_int[1] = gyro_bias_int[1] / 64;
+            gyro_bias_int[2] = gyro_bias_int[2] / 64;
+            gravity_count ++;
+        }
     }
 }
 

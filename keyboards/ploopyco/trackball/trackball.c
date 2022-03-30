@@ -33,7 +33,7 @@
 #ifndef PLOOPY_DPI_OPTIONS
 #    define PLOOPY_DPI_OPTIONS { 1200, 1600, 2400 }
 #    ifndef PLOOPY_DPI_DEFAULT
-#        define PLOOPY_DPI_DEFAULT 0
+#        define PLOOPY_DPI_DEFAULT 1
 #    endif
 #endif
 #ifndef PLOOPY_DPI_DEFAULT
@@ -67,12 +67,6 @@ bool     is_drag_scroll    = false;
 bool     is_joystick       = false;
 int16_t     opt_chg       = 0;
 uint16_t lastJoystickTime = 0;
-int16_t     mh       = 0;
-int16_t     mx       = 0;
-int16_t     my       = 0;
-int16_t    gx = 0;
-int16_t gy = 0;
-int16_t gz = 0;
 
 __attribute__((weak)) void process_wheel_user(report_mouse_t* mouse_report, int16_t h, int16_t v) {
     mouse_report->h = h;
@@ -263,8 +257,7 @@ void keyboard_pre_init_kb(void) {
 void pointing_device_init(void) {
     // initialize ball sensor
     pmw_spi_init();
-    mpu9250_setup();
-    // calibrateAccelGyro();
+
     // initialize the scroll wheel's optical encoder
     opt_encoder_init();
 }
@@ -295,41 +288,10 @@ void pointing_device_task(void) {
 
 void joystick_task(void) {
     if (is_joystick) {
-        if (mpu9250_update()) {
-            uint8_t delta = timer_elapsed(lastJoystickTime);
-            lastJoystickTime  = timer_read();
-            gx += (int16_t)getGyroX() * delta / 8;
-            gx = constrain(gx, -1016, 1016);
-            gy += (int16_t)getGyroY() * delta / 8;
-            gy = constrain(gy, -1016, 1016);
-            gz += (int16_t)(-getGyroZ()) * delta / 8;
-            gz = constrain(gz, -1016, 1016);
-            joystick_status.axes[3] = constrain(gy / 8, -127, 127);
-            joystick_status.axes[4] = constrain(gx / 8, -127, 127);
-            joystick_status.axes[5] = constrain(gz / 8, -127, 127);
-
-        }
-        joystick_status.axes[0] = constrain(mx, -127, 127);
-        joystick_status.axes[1] = constrain(-my, -127, 127);
-        joystick_status.axes[2] = constrain(mh, -127, 127);
-        send_joystick_packet(&joystick_status);
-    } else {
-        mpu9250_calibrate();
-        if (mx != 0 || my != 0 || mh != 0 || gx != 0 || gy != 0 || gz != 0) {
-            mx = 0;
-            my = 0;
-            mh = 0;
-            gx = 0;
-            gy = 0;
-            gz = 0;
-            joystick_status.axes[0] = 0;
-            joystick_status.axes[1] = 0;
-            joystick_status.axes[2] = 0;
-            joystick_status.axes[3] = 0;
-            joystick_status.axes[4] = 0;
-            joystick_status.axes[5] = 0;
-            send_joystick_packet(&joystick_status);
-        }
+        // joystick_status.axes[0] = constrain(mx, -127, 127);
+        // joystick_status.axes[1] = constrain(-my, -127, 127);
+        // joystick_status.axes[2] = constrain(mh, -127, 127);
+        // send_joystick_packet(&joystick_status);
     }
 }
 
