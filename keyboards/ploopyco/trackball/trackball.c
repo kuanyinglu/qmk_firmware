@@ -33,7 +33,7 @@
 #ifndef PLOOPY_DPI_OPTIONS
 #    define PLOOPY_DPI_OPTIONS { 1200, 1600, 2400 }
 #    ifndef PLOOPY_DPI_DEFAULT
-#        define PLOOPY_DPI_DEFAULT 1
+#        define PLOOPY_DPI_DEFAULT 0
 #    endif
 #endif
 #ifndef PLOOPY_DPI_DEFAULT
@@ -50,6 +50,9 @@ keyboard_config_t keyboard_config;
 uint16_t          dpi_array[] = PLOOPY_DPI_OPTIONS;
 #define DPI_OPTION_SIZE (sizeof(dpi_array) / sizeof(uint16_t))
 
+bool         i2c_initialized = 0;
+i2c_status_t bno055_status = I2C_ADDR;
+#define I2C_TIMEOUT 1000
 // TODO: Implement libinput profiles
 // https://wayland.freedesktop.org/libinput/doc/latest/pointer-acceleration.html
 // Compile time accel selection
@@ -67,6 +70,12 @@ bool     is_drag_scroll    = false;
 bool     is_joystick       = false;
 int16_t     opt_chg       = 0;
 uint16_t lastJoystickTime = 0;
+int      initialH          = 0;
+int      initialR          = 0;
+int      initialP          = 0;
+int      initialX          = 0;
+int      initialY          = 0;
+int      initialZ          = 0;
 
 __attribute__((weak)) void process_wheel_user(report_mouse_t* mouse_report, int16_t h, int16_t v) {
     mouse_report->h = h;
@@ -102,7 +111,7 @@ __attribute__((weak)) void process_wheel(report_mouse_t* mouse_report) {
     opt_chg = (int16_t)opt_encoder_handler(p1, p2);
     if (opt_chg == 0) return;
 
-    mh += opt_chg * 8;
+    // mh += opt_chg * 8;
     if (!is_joystick) {
         process_wheel_user(mouse_report, mouse_report->h, (int)(mouse_report->v + (opt_chg * OPT_SCALE)));
     }
@@ -150,10 +159,6 @@ __attribute__((weak)) void process_mouse(report_mouse_t* mouse_report) {
         // Wrap to HID size
         data.dx = constrain(data.dx, -127, 127);
         data.dy = constrain(data.dy, -127, 127);
-        mx += constrain(data.dx, -15, 15);
-        mx = constrain(mx, -127, 127);
-        my += constrain(data.dy, -15, 15);
-        my = constrain(my, -127, 127);
         if (debug_mouse) dprintf("Cons] X: %d, Y: %d\n", data.dx, data.dy);
         // dprintf("Elapsed:%u, X: %f Y: %\n", i, pgm_read_byte(firmware_data+i));
         if (!is_joystick) {
@@ -166,6 +171,18 @@ bool process_record_kb(uint16_t keycode, keyrecord_t* record) {
     if (true) {
         xprintf("KL: kc: %u, col: %u, row: %u, pressed: %u\n", keycode, record->event.key.col, record->event.key.row, record->event.pressed);
     }
+    // printCalibrationData();
+    // getAngles();
+    // getAcc();
+    // euler_data test = getSensorData();
+    
+    // print_val_decs(test.h);
+    // print_val_decs(test.r);
+    // print_val_decs(test.p);
+    // print_val_decs(test.x);
+    // print_val_decs(test.y);
+    // print_val_decs(test.z);
+
 
     // Update Timer to prevent accidental scrolls
     if ((record->event.key.col == 1) && (record->event.key.row == 0)) {
@@ -199,6 +216,13 @@ bool process_record_kb(uint16_t keycode, keyrecord_t* record) {
     if (keycode == JOYSTICK_MODE && record->event.pressed)
     {
         is_joystick ^= 1;
+        euler_data sensor = getSensorData();
+        initialH = sensor.h;
+        initialR = sensor.r;
+        initialP = sensor.p;
+        initialX = sensor.x;
+        initialY = sensor.y;
+        initialZ = sensor.z;
     }
 
 /* If Mousekeys is disabled, then use handle the mouse button
@@ -260,6 +284,9 @@ void pointing_device_init(void) {
 
     // initialize the scroll wheel's optical encoder
     opt_encoder_init();
+    
+    // initilaize bno055
+    init_bno055();
 }
 
 
@@ -288,10 +315,38 @@ void pointing_device_task(void) {
 
 void joystick_task(void) {
     if (is_joystick) {
-        // joystick_status.axes[0] = constrain(mx, -127, 127);
-        // joystick_status.axes[1] = constrain(-my, -127, 127);
-        // joystick_status.axes[2] = constrain(mh, -127, 127);
-        // send_joystick_packet(&joystick_status);
+        euler_data sensor = getSensorData();
+        sensor.h = initialH - sensor.h;
+        if (sensor.h > 180)
+        {
+            sensor.h = sensor.h - 360;
+        }
+        if (sensor.h < -180)
+        {
+            sensor.h = sensor.h + 360;
+        }
+        sensor.r = initialR - sensor.r;
+        if (sensor.r > 180)
+        {
+            sensor.r = sensor.r - 360;
+        }
+        if (sensor.r < -180)
+        {
+            sensor.r = sensor.r + 360;
+        }
+        sensor.p = initialP - sensor.p;
+        if (sensor.p > 180)
+        {
+            sensor.p = sensor.p - 360;
+        }
+        if (sensor.p < -180)
+        {
+            sensor.p = sensor.p + 360;
+        }
+        joystick_status.axes[3] = constrain(sensor.r * 4, -127, 127);
+        joystick_status.axes[4] = constrain(sensor.p * 4, -127, 127);
+        joystick_status.axes[5] = constrain(-sensor.h * 4, -127, 127);
+        send_joystick_packet(&joystick_status);
     }
 }
 
@@ -315,4 +370,23 @@ void keyboard_post_init_kb(void) {
     pmw_set_cpi(dpi_array[keyboard_config.dpi_config]);
 
     keyboard_post_init_user();
+}
+
+uint8_t init_bno055(void) {
+    bno055_status = I2C_ADDR;
+
+    // I2C subsystem
+    if (i2c_initialized == 0) {
+        i2c_init();  // on pins D(1,0)
+        i2c_initialized = true;
+        wait_ms(I2C_TIMEOUT);
+    }
+
+    uint8_t data = 0;
+    bno055_status = i2c_readReg(I2C_ADDR << 1, BNO055_CHIP_ID_ADDR, &data, sizeof(data), I2C_TIMEOUT);
+    if (!bno055_status) {
+        bno055_init();
+        bno055_status = i2c_readReg(I2C_ADDR << 1, BNO055_CHIP_ID_ADDR, &data, sizeof(data), I2C_TIMEOUT);
+    }
+    return bno055_status;
 }

@@ -19,12 +19,13 @@
 #pragma once
 
 #include "quantum.h"
-#include "spi_master.h"
+#include "i2c_master.h"
 #include "drivers/sensors/pmw3360.h"
 #include "analog.h"
 #include "opt_encoder.h"
 #include "pointing_device.h"
 #include "joystick.h"
+#include "drivers/sensors/bno055.h"
 #if defined(KEYBOARD_ploopyco_trackball_rev1)
 #    include "rev1.h"
 #elif defined(KEYBOARD_ploopyco_trackball_rev1_005)
@@ -41,6 +42,7 @@ void process_mouse(report_mouse_t* mouse_report);
 void process_mouse_user(report_mouse_t* mouse_report, int16_t x, int16_t y);
 void process_wheel(report_mouse_t* mouse_report);
 void process_wheel_user(report_mouse_t* mouse_report, int16_t h, int16_t v);
+uint8_t init_bno055(void);
 
 #define LAYOUT(BL, BM, BR, BF, BB) \
     { {BL, BM, BR, BF, BB}, }

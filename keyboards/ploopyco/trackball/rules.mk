@@ -23,7 +23,7 @@ MOUSEKEY_ENABLE = yes       # Mouse keys
 JOYSTICK_ENABLE = yes
 JOYSTICK_DRIVER = digital
 
-QUANTUM_LIB_SRC += analog.c spi_master.c
-SRC += drivers/sensors/pmw3360.c opt_encoder.c
+QUANTUM_LIB_SRC += analog.c spi_master.c i2c_master.c
+SRC += drivers/sensors/pmw3360.c opt_encoder.c drivers/sensors/bno055.c
 
 DEFAULT_FOLDER = ploopyco/trackball/rev1_005
