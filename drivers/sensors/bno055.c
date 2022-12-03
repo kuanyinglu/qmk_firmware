@@ -3,6 +3,7 @@
 #include "print.h"
 #include "timer.h"
 #include "wait.h"
+#include <math.h>
 
 #define I2C_TIMEOUT 1000
 
@@ -212,57 +213,74 @@ void printCalibrationData(void) {
 
   }
   i2c_readReg(I2C_ADDR << 1, ACCEL_OFFSET_X_LSB_ADDR, &data[0], sizeof(data), I2C_TIMEOUT);
-  uint16_t ax = (((uint16_t)data[0]) << 8) | ((uint16_t)data[1]);
-  uint16_t ay = (((uint16_t)data[2]) << 8) | ((uint16_t)data[3]);
-  uint16_t az = (((uint16_t)data[4]) << 8) | ((uint16_t)data[5]);
-  uint16_t mx = (((uint16_t)data[6]) << 8) | ((uint16_t)data[7]);
-  uint16_t my = (((uint16_t)data[8]) << 8) | ((uint16_t)data[9]);
-  uint16_t mz = (((uint16_t)data[10]) << 8) | ((uint16_t)data[11]);
-  uint16_t gx = (((uint16_t)data[12]) << 8) | ((uint16_t)data[13]);
-  uint16_t gy = (((uint16_t)data[14]) << 8) | ((uint16_t)data[15]);
-  uint16_t gz = (((uint16_t)data[16]) << 8) | ((uint16_t)data[17]);
-  print_val_hex16(ax);
-  print_val_hex16(ay);
-  print_val_hex16(az);
-  print_val_hex16(mx);
-  print_val_hex16(my);
-  print_val_hex16(mz);
-  print_val_hex16(gx);
-  print_val_hex16(gy);
-  print_val_hex16(gz);
+  // uint16_t ax = (((uint16_t)data[0]) << 8) | ((uint16_t)data[1]);
+  // uint16_t ay = (((uint16_t)data[2]) << 8) | ((uint16_t)data[3]);
+  // uint16_t az = (((uint16_t)data[4]) << 8) | ((uint16_t)data[5]);
+  // uint16_t mx = (((uint16_t)data[6]) << 8) | ((uint16_t)data[7]);
+  // uint16_t my = (((uint16_t)data[8]) << 8) | ((uint16_t)data[9]);
+  // uint16_t mz = (((uint16_t)data[10]) << 8) | ((uint16_t)data[11]);
+  // uint16_t gx = (((uint16_t)data[12]) << 8) | ((uint16_t)data[13]);
+  // uint16_t gy = (((uint16_t)data[14]) << 8) | ((uint16_t)data[15]);
+  // uint16_t gz = (((uint16_t)data[16]) << 8) | ((uint16_t)data[17]);
+  // print_val_hex16(ax);
+  // print_val_hex16(ay);
+  // print_val_hex16(az);
+  // print_val_hex16(mx);
+  // print_val_hex16(my);
+  // print_val_hex16(mz);
+  // print_val_hex16(gx);
+  // print_val_hex16(gy);
+  // print_val_hex16(gz);
 }
 void getAngles(void)
 {
   uint8_t data[6];
   i2c_readReg(I2C_ADDR << 1, BNO055_EULER_H_LSB_ADDR, &data[0], sizeof(data), I2C_TIMEOUT);
-  int h = ((int)((((uint16_t)data[1]) << 8) | ((uint16_t)data[0]))) / 16;
-  int r = ((int)((((uint16_t)data[3]) << 8) | ((uint16_t)data[2]))) / 16;
-  int p = ((int)((((uint16_t)data[5]) << 8) | ((uint16_t)data[4]))) / 16;
-  print_val_decs(h);
-  print_val_decs(r);
-  print_val_decs(p);
+  // int h = ((int)((((uint16_t)data[1]) << 8) | ((uint16_t)data[0]))) / 16;
+  // int r = ((int)((((uint16_t)data[3]) << 8) | ((uint16_t)data[2]))) / 16;
+  // int p = ((int)((((uint16_t)data[5]) << 8) | ((uint16_t)data[4]))) / 16;
+  // print_val_decs(h);
+  // print_val_decs(r);
+  // print_val_decs(p);
 }
 
 void getAcc(void)
 {
   uint8_t data[6];
   i2c_readReg(I2C_ADDR << 1, BNO055_LINEAR_ACCEL_DATA_X_LSB_ADDR, &data[0], sizeof(data), I2C_TIMEOUT);
-  int y = ((int)((((uint16_t)data[1]) << 8) | ((uint16_t)data[0]))) / 16;
-  int x = -((int)((((uint16_t)data[3]) << 8) | ((uint16_t)data[2]))) / 16;
-  int z = ((int)((((uint16_t)data[5]) << 8) | ((uint16_t)data[4]))) / 16;
-  print_val_decs(x);
-  print_val_decs(y);
-  print_val_decs(z);
+  // int y = ((int)((((uint16_t)data[1]) << 8) | ((uint16_t)data[0]))) / 16;
+  // int x = -((int)((((uint16_t)data[3]) << 8) | ((uint16_t)data[2]))) / 16;
+  // int z = ((int)((((uint16_t)data[5]) << 8) | ((uint16_t)data[4]))) / 16;
+  // print_val_decs(x);
+  // print_val_decs(y);
+  // print_val_decs(z);
 }
 
 euler_data getSensorData(void)
 {
-  uint8_t data[6];
+  uint8_t data[8];
   struct euler_data sensorData;
   i2c_readReg(I2C_ADDR << 1, BNO055_EULER_H_LSB_ADDR, &data[0], sizeof(data), I2C_TIMEOUT);
   sensorData.h = ((int)((((uint16_t)data[1]) << 8) | ((uint16_t)data[0]))) / 16;
   sensorData.r = ((int)((((uint16_t)data[3]) << 8) | ((uint16_t)data[2]))) / 16;
   sensorData.p = ((int)((((uint16_t)data[5]) << 8) | ((uint16_t)data[4]))) / 16;
+  // const double scale = (1.0 / (1 << 14));
+
+  /* Read quat data (8 bytes) */
+  // i2c_readReg(I2C_ADDR << 1, BNO055_QUATERNION_DATA_W_LSB_ADDR, &data[0], sizeof(data), I2C_TIMEOUT);
+  // w = ((((uint16_t)data[1]) << 8) | ((uint16_t)data[0])) * scale;
+  // x = ((((uint16_t)data[3]) << 8) | ((uint16_t)data[2])) * scale;
+  // y = ((((uint16_t)data[5]) << 8) | ((uint16_t)data[4])) * scale;
+  // z = ((((uint16_t)data[7]) << 8) | ((uint16_t)data[6])) * scale;
+  // double sqw = w * w;
+  // double sqx = x * x;
+  // double sqy = y * y;
+  // double sqz = z * z;
+
+  // sensorData.h = atan2(2.0 * (x * y + z * w), (sqx - sqy - sqz + sqw)) * 180 / M_PI;
+  // sensorData.r = asin(-2.0 * (x * z - y * w) / (sqx + sqy + sqz + sqw)) * 180 / M_PI;
+  // sensorData.p = atan2(2.0 * (y * z + x * w), (-sqx - sqy + sqz + sqw)) *180 / M_PI;
+
   i2c_readReg(I2C_ADDR << 1, BNO055_LINEAR_ACCEL_DATA_X_LSB_ADDR, &data[0], sizeof(data), I2C_TIMEOUT);
   sensorData.y = ((int)((((uint16_t)data[1]) << 8) | ((uint16_t)data[0]))) / 16;
   sensorData.x = -((int)((((uint16_t)data[3]) << 8) | ((uint16_t)data[2]))) / 16;

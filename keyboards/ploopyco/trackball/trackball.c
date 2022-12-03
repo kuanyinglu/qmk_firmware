@@ -73,9 +73,10 @@ uint16_t lastJoystickTime = 0;
 int      initialH          = 0;
 int      initialR          = 0;
 int      initialP          = 0;
-int      initialX          = 0;
-int      initialY          = 0;
-int      initialZ          = 0;
+// uint16_t lastJoystickPoll  = 0;      // integrating joystick
+int8_t  xPos              = 0;
+int8_t  yPos              = 0;
+int8_t  zPos              = 0;
 
 __attribute__((weak)) void process_wheel_user(report_mouse_t* mouse_report, int16_t h, int16_t v) {
     mouse_report->h = h;
@@ -115,6 +116,10 @@ __attribute__((weak)) void process_wheel(report_mouse_t* mouse_report) {
     if (!is_joystick) {
         process_wheel_user(mouse_report, mouse_report->h, (int)(mouse_report->v + (opt_chg * OPT_SCALE)));
     }
+    else
+    {
+        zPos = constrain(zPos + (opt_chg * 8), -127, 127);
+    }
 }
 
 __attribute__((weak)) void process_mouse_user(report_mouse_t* mouse_report, int16_t x, int16_t y) {
@@ -144,7 +149,7 @@ __attribute__((weak)) void process_mouse(report_mouse_t* mouse_report) {
             dprintf("Pre ] X: %d, Y: %d\n", data.dx, data.dy);
         }
 #if defined(PROFILE_LINEAR)
-        float scale = float(timer_elaspsed(MotionStart)) / 1000.0;
+        float scale = float(timer_elapsed(MotionStart)) / 1000.0;
         data.dx *= scale;
         data.dy *= scale;
 #elif defined(PROFILE_INVERSE)
@@ -163,6 +168,11 @@ __attribute__((weak)) void process_mouse(report_mouse_t* mouse_report) {
         // dprintf("Elapsed:%u, X: %f Y: %\n", i, pgm_read_byte(firmware_data+i));
         if (!is_joystick) {
             process_mouse_user(mouse_report, data.dx, -data.dy);
+        }
+        else 
+        {
+            xPos = constrain(xPos + data.dx, -127, 127);
+            yPos = constrain(yPos - data.dy, -127, 127);
         }
     }
 }
@@ -220,9 +230,16 @@ bool process_record_kb(uint16_t keycode, keyrecord_t* record) {
         initialH = sensor.h;
         initialR = sensor.r;
         initialP = sensor.p;
-        initialX = sensor.x;
-        initialY = sensor.y;
-        initialZ = sensor.z;
+        xPos = 0;
+        yPos = 0;
+        zPos = 0;
+    }
+    if (is_joystick && keycode == DRAG_SCROLL)
+    {
+        xPos = 0;
+        yPos = 0;
+        zPos = 0;
+        // lastJoystickPoll = timer_read();
     }
 
 /* If Mousekeys is disabled, then use handle the mouse button
@@ -316,6 +333,9 @@ void pointing_device_task(void) {
 void joystick_task(void) {
     if (is_joystick) {
         euler_data sensor = getSensorData();
+        // print_val_decs(sensor.r);
+        // print_val_decs(sensor.p);
+        // print_val_decs(initialH);
         sensor.h = initialH - sensor.h;
         if (sensor.h > 180)
         {
@@ -343,9 +363,25 @@ void joystick_task(void) {
         {
             sensor.p = sensor.p + 360;
         }
-        joystick_status.axes[3] = constrain(sensor.r * 4, -127, 127);
+        joystick_status.axes[3] = constrain(-sensor.r * 4, -127, 127);
         joystick_status.axes[4] = constrain(sensor.p * 4, -127, 127);
         joystick_status.axes[5] = constrain(-sensor.h * 4, -127, 127);
+        if (is_joystick && is_drag_scroll)
+        {
+            // print_val_decs(sensor.x);
+            // print_val_decs(sensor.y);
+            // print_val_decs(sensor.z);
+            // print_val_decs(timer_elapsed(lastJoystickPoll));
+            // xVel = xVel + (sensor.x / timer_elapsed(lastJoystickPoll));
+            // yVel = yVel + (sensor.y / timer_elapsed(lastJoystickPoll));
+            // zVel = zVel + (sensor.z / timer_elapsed(lastJoystickPoll));
+            // lastJoystickPoll = timer_read();
+        }
+        joystick_status.axes[0] = constrain(xPos, -127, 127);
+        joystick_status.axes[1] = constrain(yPos, -127, 127);
+        joystick_status.axes[2] = constrain(zPos, -127, 127);
+
+        // print_val_decs(sensor.h);
         send_joystick_packet(&joystick_status);
     }
 }
